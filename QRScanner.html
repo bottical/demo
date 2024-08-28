@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner with Marking</title>
+    <title>Improved QR Code Scanner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>QR Code Scanner with Marking</h1>
+    <h1>Improved QR Code Scanner</h1>
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
@@ -38,34 +38,26 @@
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d', { willReadFrequently: true });
+        const context = canvas.getContext('2d');
         const qrCountElement = document.getElementById('qrCount');
         let qrCodeCount = 0;
 
-        // QR Scannerの初期化とQRコードの検出
+        // QR Scannerの初期化
         const qrScanner = new QrScanner(video, result => {
             console.log('QR Code detected:', result);
+
             qrCodeCount = 1;
             qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
-            
+
             drawBoundingBox(result.cornerPoints);
-        }, {
-            returnDetailedScanResult: true
         });
 
         qrScanner.start();
 
-        // フレームごとにカウントと描画をリセット
-        function resetCanvas() {
-            qrCodeCount = 0;
-            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
-            context.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        // QRコードの枠を描画
+        // 描画を分離して行う関数
         function drawBoundingBox(corners) {
+            context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
             if (corners && corners.length === 4) {
-                context.clearRect(0, 0, canvas.width, canvas.height); // 前の描画をクリア
                 context.strokeStyle = 'red';
                 context.lineWidth = 4;
                 context.beginPath();
@@ -78,9 +70,11 @@
             }
         }
 
-        // スキャンのループ
+        // フレームごとにQRコードの検出を試みる
         function scanLoop() {
-            resetCanvas();
+            context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+            qrCodeCount = 0;
+            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
             requestAnimationFrame(scanLoop);
         }
 
