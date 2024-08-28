@@ -53,46 +53,49 @@
         function onOpenCvReady() {
             console.log("OpenCV.js is ready");
 
-            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-            let gray = new cv.Mat();
-            let cap = new cv.VideoCapture(video);
+            // OpenCVが完全に初期化されるまで少し待機
+            cv['onRuntimeInitialized']=()=>{
+                let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                let gray = new cv.Mat();
+                let cap = new cv.VideoCapture(video);
 
-            const detectQR = () => {
-                try {
-                    cap.read(src);
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                const detectQR = () => {
+                    try {
+                        cap.read(src);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                    let qrCodeDetector = new cv.QRCodeDetector();
-                    let points = new cv.Mat();
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    qrCountElement.innerHTML = "QR Codes Detected: 0";
-                    
-                    if (qrCodeDetector.detect(gray, points)) {
-                        let qrCodeCount = points.rows / 4;
-                        qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
+                        let qrCodeDetector = new cv.QRCodeDetector();
+                        let points = new cv.Mat();
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        qrCountElement.innerHTML = "QR Codes Detected: 0";
+                        
+                        if (qrCodeDetector.detect(gray, points)) {
+                            let qrCodeCount = points.rows / 4;
+                            qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
 
-                        for (let i = 0; i < points.rows; i += 4) {
-                            context.beginPath();
-                            context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
-                            for (let j = 1; j < 4; j++) {
-                                context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                            for (let i = 0; i < points.rows; i += 4) {
+                                context.beginPath();
+                                context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
+                                for (let j = 1; j < 4; j++) {
+                                    context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                                }
+                                context.closePath();
+                                context.lineWidth = 4;
+                                context.strokeStyle = "red";
+                                context.stroke();
                             }
-                            context.closePath();
-                            context.lineWidth = 4;
-                            context.strokeStyle = "red";
-                            context.stroke();
                         }
+
+                        points.delete();
+                    } catch (err) {
+                        console.error("Error during QR code detection:", err);
                     }
 
-                    points.delete();
-                } catch (err) {
-                    console.error("Error during QR code detection:", err);
-                }
+                    requestAnimationFrame(detectQR);
+                };
 
                 requestAnimationFrame(detectQR);
             };
-
-            requestAnimationFrame(detectQR);
         }
     </script>
 </body>
