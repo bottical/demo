@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi QR Code Scanner</title>
+    <title>Enhanced Multi QR Code Scanner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Multi QR Code Scanner</h1>
+    <h1>Enhanced Multi QR Code Scanner</h1>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
 
@@ -38,13 +38,13 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const qrCountElement = document.getElementById('qrCount');
-        const video = document.createElement('video'); // ビデオを非表示に
+        const video = document.createElement('video');
 
         // Webカメラ映像の取得
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => {
                 video.srcObject = stream;
-                video.play(); // ビデオはプレイしつつ、描画のみに使用
+                video.play();
             })
             .catch(err => {
                 console.error("Error accessing camera: ", err);
@@ -58,24 +58,34 @@
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                // フレームごとにカウントをリセット
                 let qrCodeCount = 0;
-                const detectedCodes = []; // 検出されたQRコードを保持
+                const blockSize = 100; // スキャンブロックのサイズを小さく設定
 
-                // QRコードを複数検出するためのロジック
-                // 画像全体をスキャンし、複数の位置でQRコードを検出する
-                for (let y = 0; y < canvas.height; y += 200) { // 200ピクセルごとに分割してスキャン
-                    for (let x = 0; x < canvas.width; x += 200) {
-                        const subImageData = context.getImageData(x, y, 200, 200);
-                        const code = jsQR(subImageData.data, 200, 200);
+                // 全体を小さいブロックに分けてスキャン
+                for (let y = 0; y < canvas.height; y += blockSize) {
+                    for (let x = 0; x < canvas.width; x += blockSize) {
+                        const subImageData = context.getImageData(x, y, blockSize, blockSize);
+                        const code = jsQR(subImageData.data, blockSize, blockSize);
 
                         if (code) {
-                            detectedCodes.push(code);
                             qrCodeCount++;
-                            drawLine(code.location.topLeftCorner, code.location.topRightCorner);
-                            drawLine(code.location.topRightCorner, code.location.bottomRightCorner);
-                            drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner);
-                            drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner);
+                            // QRコードの位置をキャンバス座標に変換
+                            drawLine(
+                                transformCoordinate(code.location.topLeftCorner, x, y),
+                                transformCoordinate(code.location.topRightCorner, x, y)
+                            );
+                            drawLine(
+                                transformCoordinate(code.location.topRightCorner, x, y),
+                                transformCoordinate(code.location.bottomRightCorner, x, y)
+                            );
+                            drawLine(
+                                transformCoordinate(code.location.bottomRightCorner, x, y),
+                                transformCoordinate(code.location.bottomLeftCorner, x, y)
+                            );
+                            drawLine(
+                                transformCoordinate(code.location.bottomLeftCorner, x, y),
+                                transformCoordinate(code.location.topLeftCorner, x, y)
+                            );
                         }
                     }
                 }
@@ -84,6 +94,13 @@
                 qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
             }
             requestAnimationFrame(scanQRCode);
+        }
+
+        function transformCoordinate(point, offsetX, offsetY) {
+            return {
+                x: point.x + offsetX,
+                y: point.y + offsetY
+            };
         }
 
         function drawLine(begin, end) {
