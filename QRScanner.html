@@ -29,7 +29,7 @@
 <body>
     <h1>QR Code Detection with OpenCV</h1>
     <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" width="640" height="480"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
 
     <!-- OpenCV.jsの読み込み -->
@@ -61,7 +61,10 @@
 
                 const detectQR = () => {
                     try {
-                        cap.read(src);
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);  // videoをcanvasに描画
+                        let imageData = context.getImageData(0, 0, canvas.width, canvas.height);  // 画像データを取得
+                        src.data.set(imageData.data);
+
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
                         let qrCodeDetector = new cv.QRCodeDetector();
