@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stable QR Code Scanner with Marking</title>
+    <title>QR Code Scanner with Marking</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +14,7 @@
             height: 100vh;
             margin: 0;
         }
-        canvas, video {
+        video, canvas {
             width: 600px;
             height: 400px;
             border: 1px solid black;
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Stable QR Code Scanner with Marking</h1>
+    <h1>QR Code Scanner with Marking</h1>
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
@@ -42,10 +42,10 @@
         const qrCountElement = document.getElementById('qrCount');
         let qrCodeCount = 0;
 
-        // qr-scannerの初期化とQRコードの検出
+        // QR Scannerの初期化とQRコードの検出
         const qrScanner = new QrScanner(video, result => {
             console.log('QR Code detected:', result);
-            qrCodeCount = 1;  // フレームごとに1つのQRコードが検出されたとする
+            qrCodeCount = 1;
             drawBoundingBox(result);
             qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
         }, {
@@ -54,37 +54,32 @@
 
         qrScanner.start();
 
-        // フレームごとにQRコードのカウントをリセット
-        function resetCount() {
+        // フレームごとにカウントと描画をリセット
+        function resetCanvas() {
             qrCodeCount = 0;
             qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
-            context.clearRect(0, 0, canvas.width, canvas.height);  // 描画をリセット
+            context.clearRect(0, 0, canvas.width, canvas.height);
         }
 
+        // QRコードの枠を描画
         function drawBoundingBox(result) {
-            context.clearRect(0, 0, canvas.width, canvas.height);  // 前の描画をクリア
-            context.strokeStyle = 'red';
-            context.lineWidth = 4;
-
             const corners = result.cornerPoints;
             if (corners && corners.length === 4) {
+                context.strokeStyle = 'red';
+                context.lineWidth = 4;
                 context.beginPath();
                 context.moveTo(corners[0].x, corners[0].y);
-                corners.forEach((corner, index) => {
-                    if (index > 0) {
-                        context.lineTo(corner.x, corner.y);
-                    }
-                });
+                for (let i = 1; i < corners.length; i++) {
+                    context.lineTo(corners[i].x, corners[i].y);
+                }
                 context.closePath();
                 context.stroke();
-            } else {
-                console.error('Invalid corner points:', corners);
             }
         }
 
         // スキャンのループ
         function scanLoop() {
-            resetCount();
+            resetCanvas();
             requestAnimationFrame(scanLoop);
         }
 
