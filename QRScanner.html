@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stable Multi QR Code Scanner</title>
+    <title>Optimized Multi QR Code Scanner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h1>Stable Multi QR Code Scanner</h1>
+    <h1>Optimized Multi QR Code Scanner</h1>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
 
@@ -41,6 +41,7 @@
         const video = document.createElement('video');
 
         let lastDetectedCodes = [];
+        let scanning = false;
 
         // Webカメラ映像の取得
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
@@ -52,32 +53,33 @@
                 console.error("Error accessing camera: ", err);
             });
 
-        // qr-scannerライブラリを使用してQRコードを検出
-        function scanQRCode() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // QRコードのスキャンと描画
+        async function scanQRCode() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && !scanning) {
+                scanning = true;
                 canvas.height = video.videoHeight;
                 canvas.width = video.videoWidth;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                // qr-scannerを使ってQRコードを検出
-                qrScanner.scanImage(imageData, { returnDetailedScanResult: true })
-                    .then(result => {
-                        if (result) {
-                            const detectedCodes = result.map(code => code.data);
+                try {
+                    const result = await qrScanner.scanImage(imageData, { returnDetailedScanResult: true });
+                    if (result) {
+                        const detectedCodes = result.map(code => code.data);
 
-                            // 点滅の防止のため、前フレームと一致したQRコードのみ描画
-                            if (JSON.stringify(detectedCodes) !== JSON.stringify(lastDetectedCodes)) {
-                                lastDetectedCodes = detectedCodes;
-                                drawBoundingBoxes(result);
-                            }
-
-                            qrCountElement.textContent = `QR Codes Detected: ${detectedCodes.length}`;
+                        // 点滅の防止のため、前フレームと一致したQRコードのみ描画
+                        if (JSON.stringify(detectedCodes) !== JSON.stringify(lastDetectedCodes)) {
+                            lastDetectedCodes = detectedCodes;
+                            drawBoundingBoxes(result);
                         }
-                    })
-                    .catch(err => {
-                        console.error("QR Scan Error:", err);
-                    });
+
+                        qrCountElement.textContent = `QR Codes Detected: ${detectedCodes.length}`;
+                    }
+                } catch (err) {
+                    console.error("QR Scan Error:", err);
+                } finally {
+                    scanning = false;
+                }
             }
             requestAnimationFrame(scanQRCode);
         }
