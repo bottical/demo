@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Improved QR Code Scanner</title>
+    <title>QR Code Detection with OpenCV</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             margin: 0;
+            font-family: Arial, sans-serif;
         }
         video, canvas {
-            width: 600px;
-            height: 400px;
+            width: 640px;
+            height: 480px;
             border: 1px solid black;
             margin-bottom: 20px;
         }
@@ -27,56 +27,71 @@
     </style>
 </head>
 <body>
-    <h1>Improved QR Code Scanner</h1>
+    <h1>QR Code Detection with OpenCV</h1>
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
 
-    <!-- QR Scannerライブラリの読み込みをモジュールとして行う -->
-    <script type="module">
-        import QrScanner from "https://unpkg.com/qr-scanner/qr-scanner.min.js";
+    <!-- OpenCV.jsの読み込み -->
+    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        const qrCountElement = document.getElementById('qrCount');
-        let qrCodeCount = 0;
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let context = canvas.getContext('2d');
+        let qrCountElement = document.getElementById('qrCount');
 
-        // QR Scannerの初期化
-        const qrScanner = new QrScanner(video, result => {
-            console.log('QR Code detected:', result);
-
-            qrCodeCount = 1;
-            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
-
-            drawBoundingBox(result.cornerPoints);
+        // Webカメラ映像の取得
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+            video.srcObject = stream;
+        }).catch(err => {
+            console.error("Error accessing camera: ", err);
         });
 
-        qrScanner.start();
+        // OpenCV.jsがロードされたときに呼び出される
+        function onOpenCvReady() {
+            console.log("OpenCV.js is ready");
 
-        // 描画を分離して行う関数
-        function drawBoundingBox(corners) {
-            context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
-            if (corners && corners.length === 4) {
-                context.strokeStyle = 'red';
-                context.lineWidth = 4;
-                context.beginPath();
-                context.moveTo(corners[0].x, corners[0].y);
-                for (let i = 1; i < corners.length; i++) {
-                    context.lineTo(corners[i].x, corners[i].y);
+            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            let gray = new cv.Mat();
+            let cap = new cv.VideoCapture(video);
+
+            const detectQR = () => {
+                cap.read(src);
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+                let qrCodeDetector = new cv.QRCodeDetector();
+                let points = new cv.Mat();
+                let rect = new cv.Rect(0, 0, canvas.width, canvas.height);
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                qrCountElement.innerHTML = "QR Codes Detected: 0";
+                
+                // QRコードを検出
+                if (qrCodeDetector.detect(gray, points)) {
+                    qrCodeCount = points.rows / 4; // 各QRコードごとに4つのポイントがある
+                    qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
+
+                    // QRコードをマーキング
+                    for (let i = 0; i < points.rows; i += 4) {
+                        context.beginPath();
+                        context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
+                        for (let j = 1; j < 4; j++) {
+                            context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                        }
+                        context.closePath();
+                        context.lineWidth = 4;
+                        context.strokeStyle = "red";
+                        context.stroke();
+                    }
                 }
-                context.closePath();
-                context.stroke();
-            }
-        }
 
-        // フレームごとにQRコードの検出を試みる
-        function scanLoop() {
-            context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
-            requestAnimationFrame(scanLoop);
-        }
+                // 次のフレーム処理をスケジュール
+                requestAnimationFrame(detectQR);
+            };
 
-        scanLoop();
+            // 最初のフレーム処理を開始
+            requestAnimationFrame(detectQR);
+        }
     </script>
 </body>
 </html>
