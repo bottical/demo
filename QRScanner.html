@@ -73,8 +73,6 @@
         // フレームごとにQRコードの検出を試みる
         function scanLoop() {
             context.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
-            qrCodeCount = 0;
-            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
             requestAnimationFrame(scanLoop);
         }
 
