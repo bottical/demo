@@ -78,11 +78,15 @@
                             let qrCodeCount = points.rows / 4;
                             qrCountElement.innerHTML = `QR Codes Detected: ${Math.floor(qrCodeCount)}`;
 
+                            // 座標のスケーリング
+                            let xRatio = canvas.width / video.videoWidth;
+                            let yRatio = canvas.height / video.videoHeight;
+
                             for (let i = 0; i < points.rows; i += 4) {
                                 context.beginPath();
-                                context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
+                                context.moveTo(points.floatAt(i, 0) * xRatio, points.floatAt(i, 1) * yRatio);
                                 for (let j = 1; j < 4; j++) {
-                                    context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                                    context.lineTo(points.floatAt(i + j, 0) * xRatio, points.floatAt(i + j, 1) * yRatio);
                                 }
                                 context.closePath();
                                 context.lineWidth = 4;
