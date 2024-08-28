@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>複数QRコード検出カウンター</title>
+    <title>Stable QR Code Scanner with QR-Scanner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,7 +14,7 @@
             height: 100vh;
             margin: 0;
         }
-        canvas {
+        canvas, video {
             width: 600px;
             height: 400px;
             border: 1px solid black;
@@ -27,100 +27,38 @@
     </style>
 </head>
 <body>
-    <h1>複数QRコード検出カウンター</h1>
-    <canvas id="canvas"></canvas>
-    <div id="qrCount">検出されたQRコード: 0</div>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <h1>Stable QR Code Scanner with QR-Scanner</h1>
+    <video id="video" autoplay></video>
+    <div id="qrCount">QR Codes Detected: 0</div>
+
+    <!-- qr-scannerライブラリの読み込み -->
+    <script src="https://unpkg.com/qr-scanner/qr-scanner.min.js"></script>
     
     <script>
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
+        const video = document.getElementById('video');
         const qrCountElement = document.getElementById('qrCount');
-        const video = document.createElement('video');
+        let qrCodeCount = 0;
 
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => {
-                video.srcObject = stream;
-                video.play();
-            })
-            .catch(err => {
-                console.error("カメラへのアクセスエラー: ", err);
-            });
+        // qr-scannerの初期化とQRコードの検出
+        QrScanner.WORKER_PATH = 'https://unpkg.com/qr-scanner/qr-scanner-worker.min.js';
+        const qrScanner = new QrScanner(video, result => {
+            console.log('QR Code detected:', result);
+            qrCodeCount++;
+            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
+        }, {
+            returnDetailedScanResult: true
+        });
 
-        function scanQRCode() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                canvas.height = video.videoHeight;
-                canvas.width = video.videoWidth;
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                
-                const qrCodes = findMultipleQRCodes(imageData);
-                
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                qrCodes.forEach((code, index) => {
-                    drawQRCode(code, index);
-                });
-                
-                qrCountElement.textContent = `検出されたQRコード: ${qrCodes.length}`;
-            }
-            requestAnimationFrame(scanQRCode);
+        qrScanner.start();
+
+        // カウントのリセット処理（再起動などのイベントでリセットされる）
+        function resetCount() {
+            qrCodeCount = 0;
+            qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
         }
 
-        function findMultipleQRCodes(imageData) {
-            const qrCodes = [];
-            const gridSize = 4;
-            const cellWidth = Math.floor(imageData.width / gridSize);
-            const cellHeight = Math.floor(imageData.height / gridSize);
-
-            for (let y = 0; y < gridSize; y++) {
-                for (let x = 0; x < gridSize; x++) {
-                    const cellData = context.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-                    const code = jsQR(cellData.data, cellData.width, cellData.height);
-                    if (code) {
-                        code.location.topLeftCorner.x += x * cellWidth;
-                        code.location.topLeftCorner.y += y * cellHeight;
-                        code.location.topRightCorner.x += x * cellWidth;
-                        code.location.topRightCorner.y += y * cellHeight;
-                        code.location.bottomRightCorner.x += x * cellWidth;
-                        code.location.bottomRightCorner.y += y * cellHeight;
-                        code.location.bottomLeftCorner.x += x * cellWidth;
-                        code.location.bottomLeftCorner.y += y * cellHeight;
-                        
-                        if (!isDuplicateQRCode(qrCodes, code)) {
-                            qrCodes.push(code);
-                        }
-                    }
-                }
-            }
-            return qrCodes;
-        }
-
-        function isDuplicateQRCode(qrCodes, newCode) {
-            return qrCodes.some(code => 
-                Math.abs(code.location.topLeftCorner.x - newCode.location.topLeftCorner.x) < 20 &&
-                Math.abs(code.location.topLeftCorner.y - newCode.location.topLeftCorner.y) < 20
-            );
-        }
-
-        function drawQRCode(code, index) {
-            const colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"];
-            const color = colors[index % colors.length];
-            drawLine(code.location.topLeftCorner, code.location.topRightCorner, color);
-            drawLine(code.location.topRightCorner, code.location.bottomRightCorner, color);
-            drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner, color);
-            drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner, color);
-        }
-
-        function drawLine(begin, end, color) {
-            context.beginPath();
-            context.moveTo(begin.x, begin.y);
-            context.lineTo(end.x, end.y);
-            context.lineWidth = 4;
-            context.strokeStyle = color;
-            context.stroke();
-        }
-
-        video.addEventListener('play', scanQRCode);
+        // スキャナの起動時にカウントをリセット
+        qrScanner.addEventListener('scan', resetCount);
     </script>
 </body>
 </html>
