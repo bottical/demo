@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Improved QR Code Scanner</title>
+    <title>Stable Multi QR Code Scanner</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,18 +27,20 @@
     </style>
 </head>
 <body>
-    <h1>Improved QR Code Scanner</h1>
+    <h1>Stable Multi QR Code Scanner</h1>
     <canvas id="canvas"></canvas>
     <div id="qrCount">QR Codes Detected: 0</div>
 
-    <!-- jsQRライブラリの読み込み -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <!-- qr-scannerライブラリの読み込み -->
+    <script src="https://unpkg.com/qr-scanner/qr-scanner.min.js"></script>
     
     <script>
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const qrCountElement = document.getElementById('qrCount');
         const video = document.createElement('video');
+
+        let lastDetectedCodes = [];
 
         // Webカメラ映像の取得
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
@@ -50,7 +52,7 @@
                 console.error("Error accessing camera: ", err);
             });
 
-        // QRコードの検出とマーキング
+        // qr-scannerライブラリを使用してQRコードを検出
         function scanQRCode() {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.height = video.videoHeight;
@@ -58,31 +60,40 @@
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                // qr-scannerを使ってQRコードを検出
+                qrScanner.scanImage(imageData, { returnDetailedScanResult: true })
+                    .then(result => {
+                        if (result) {
+                            const detectedCodes = result.map(code => code.data);
 
-                // フレームごとにカウントをリセット
-                let qrCodeCount = 0;
+                            // 点滅の防止のため、前フレームと一致したQRコードのみ描画
+                            if (JSON.stringify(detectedCodes) !== JSON.stringify(lastDetectedCodes)) {
+                                lastDetectedCodes = detectedCodes;
+                                drawBoundingBoxes(result);
+                            }
 
-                if (code) {
-                    qrCodeCount++;
-                    drawLine(code.location.topLeftCorner, code.location.topRightCorner);
-                    drawLine(code.location.topRightCorner, code.location.bottomRightCorner);
-                    drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner);
-                    drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner);
-                }
-
-                qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
+                            qrCountElement.textContent = `QR Codes Detected: ${detectedCodes.length}`;
+                        }
+                    })
+                    .catch(err => {
+                        console.error("QR Scan Error:", err);
+                    });
             }
             requestAnimationFrame(scanQRCode);
         }
 
-        function drawLine(begin, end) {
-            context.beginPath();
-            context.moveTo(begin.x, begin.y);
-            context.lineTo(end.x, end.y);
-            context.lineWidth = 4;
-            context.strokeStyle = "red";
-            context.stroke();
+        function drawBoundingBoxes(detectedCodes) {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            detectedCodes.forEach(code => {
+                const corners = code.corners;
+                context.beginPath();
+                context.moveTo(corners[0].x, corners[0].y);
+                corners.forEach(corner => context.lineTo(corner.x, corner.y));
+                context.closePath();
+                context.lineWidth = 4;
+                context.strokeStyle = "red";
+                context.stroke();
+            });
         }
 
         video.addEventListener('play', scanQRCode);
