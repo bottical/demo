@@ -100,9 +100,11 @@
                         console.error("Error during QR code detection:", err);
                     }
 
+                    // 次のフレームを要求
                     requestAnimationFrame(detectQR);
                 };
 
+                // 最初のフレームを開始
                 requestAnimationFrame(detectQR);
             };
         }
