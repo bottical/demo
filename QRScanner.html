@@ -55,15 +55,17 @@
 
             // OpenCVが完全に初期化されるまで少し待機
             cv['onRuntimeInitialized']=()=>{
-                let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                // srcのサイズをcanvasに合わせて初期化
+                let src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
                 let gray = new cv.Mat();
-                let cap = new cv.VideoCapture(video);
 
                 const detectQR = () => {
                     try {
-                        context.drawImage(video, 0, 0, canvas.width, canvas.height);  // videoをcanvasに描画
-                        let imageData = context.getImageData(0, 0, canvas.width, canvas.height);  // 画像データを取得
-                        src.data.set(imageData.data);
+                        // videoをcanvasに描画
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height); 
+                        // canvasから画像データを取得
+                        let imageData = context.getImageData(0, 0, canvas.width, canvas.height); 
+                        src.data.set(imageData.data);  // 画像データをMatにセット
 
                         cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
