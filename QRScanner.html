@@ -46,8 +46,9 @@
         const qrScanner = new QrScanner(video, result => {
             console.log('QR Code detected:', result);
             qrCodeCount = 1;
-            drawBoundingBox(result);
             qrCountElement.textContent = `QR Codes Detected: ${qrCodeCount}`;
+            
+            drawBoundingBox(result.cornerPoints);
         }, {
             returnDetailedScanResult: true
         });
@@ -62,9 +63,9 @@
         }
 
         // QRコードの枠を描画
-        function drawBoundingBox(result) {
-            const corners = result.cornerPoints;
+        function drawBoundingBox(corners) {
             if (corners && corners.length === 4) {
+                context.clearRect(0, 0, canvas.width, canvas.height); // 前の描画をクリア
                 context.strokeStyle = 'red';
                 context.lineWidth = 4;
                 context.beginPath();
