@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced QR Code Scanner with qr-scanner</title>
+    <title>複数QRコード検出カウンター</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,12 +27,10 @@
     </style>
 </head>
 <body>
-    <h1>Enhanced QR Code Scanner</h1>
+    <h1>複数QRコード検出カウンター</h1>
     <canvas id="canvas"></canvas>
-    <div id="qrCount">QR Codes Detected: 0</div>
-
-    <!-- qr-scannerライブラリの読み込み -->
-    <script src="https://unpkg.com/qr-scanner/qr-scanner.min.js"></script>
+    <div id="qrCount">検出されたQRコード: 0</div>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
     
     <script>
         const canvas = document.getElementById('canvas');
@@ -40,57 +38,86 @@
         const qrCountElement = document.getElementById('qrCount');
         const video = document.createElement('video');
 
-        let scanning = false;
-
-        // Webカメラ映像の取得
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => {
                 video.srcObject = stream;
                 video.play();
             })
             .catch(err => {
-                console.error("Error accessing camera: ", err);
+                console.error("カメラへのアクセスエラー: ", err);
             });
 
-        // QRコードのスキャンと描画
-        async function scanQRCode() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA && !scanning) {
-                scanning = true;
+        function scanQRCode() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.height = video.videoHeight;
                 canvas.width = video.videoWidth;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-
-                try {
-                    const result = await QrScanner.scanImage(imageData, { returnDetailedScanResult: true });
-                    if (result) {
-                        drawBoundingBoxes(result);
-                        qrCountElement.textContent = `QR Codes Detected: ${result.length}`;
-                    } else {
-                        qrCountElement.textContent = "QR Codes Detected: 0";
-                        context.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-                } catch (err) {
-                    console.error("QR Scan Error:", err);
-                } finally {
-                    scanning = false;
-                }
+                
+                const qrCodes = findMultipleQRCodes(imageData);
+                
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                qrCodes.forEach((code, index) => {
+                    drawQRCode(code, index);
+                });
+                
+                qrCountElement.textContent = `検出されたQRコード: ${qrCodes.length}`;
             }
             requestAnimationFrame(scanQRCode);
         }
 
-        function drawBoundingBoxes(detectedCodes) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            detectedCodes.forEach(code => {
-                const corners = code.corners;
-                context.beginPath();
-                context.moveTo(corners[0].x, corners[0].y);
-                corners.forEach(corner => context.lineTo(corner.x, corner.y));
-                context.closePath();
-                context.lineWidth = 4;
-                context.strokeStyle = "red";
-                context.stroke();
-            });
+        function findMultipleQRCodes(imageData) {
+            const qrCodes = [];
+            const gridSize = 4;
+            const cellWidth = Math.floor(imageData.width / gridSize);
+            const cellHeight = Math.floor(imageData.height / gridSize);
+
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cellData = context.getImageData(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+                    const code = jsQR(cellData.data, cellData.width, cellData.height);
+                    if (code) {
+                        code.location.topLeftCorner.x += x * cellWidth;
+                        code.location.topLeftCorner.y += y * cellHeight;
+                        code.location.topRightCorner.x += x * cellWidth;
+                        code.location.topRightCorner.y += y * cellHeight;
+                        code.location.bottomRightCorner.x += x * cellWidth;
+                        code.location.bottomRightCorner.y += y * cellHeight;
+                        code.location.bottomLeftCorner.x += x * cellWidth;
+                        code.location.bottomLeftCorner.y += y * cellHeight;
+                        
+                        if (!isDuplicateQRCode(qrCodes, code)) {
+                            qrCodes.push(code);
+                        }
+                    }
+                }
+            }
+            return qrCodes;
+        }
+
+        function isDuplicateQRCode(qrCodes, newCode) {
+            return qrCodes.some(code => 
+                Math.abs(code.location.topLeftCorner.x - newCode.location.topLeftCorner.x) < 20 &&
+                Math.abs(code.location.topLeftCorner.y - newCode.location.topLeftCorner.y) < 20
+            );
+        }
+
+        function drawQRCode(code, index) {
+            const colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF"];
+            const color = colors[index % colors.length];
+            drawLine(code.location.topLeftCorner, code.location.topRightCorner, color);
+            drawLine(code.location.topRightCorner, code.location.bottomRightCorner, color);
+            drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner, color);
+            drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner, color);
+        }
+
+        function drawLine(begin, end, color) {
+            context.beginPath();
+            context.moveTo(begin.x, begin.y);
+            context.lineTo(end.x, end.y);
+            context.lineWidth = 4;
+            context.strokeStyle = color;
+            context.stroke();
         }
 
         video.addEventListener('play', scanQRCode);
