@@ -54,7 +54,7 @@
             console.log("OpenCV.js is ready");
 
             // OpenCVが完全に初期化されるまで少し待機
-            cv['onRuntimeInitialized']=()=>{
+            cv['onRuntimeInitialized'] = () => {
                 // srcのサイズをcanvasに合わせて初期化
                 let src = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC4);
                 let gray = new cv.Mat();
@@ -76,7 +76,7 @@
                         
                         if (qrCodeDetector.detect(gray, points)) {
                             let qrCodeCount = points.rows / 4;
-                            qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
+                            qrCountElement.innerHTML = `QR Codes Detected: ${Math.floor(qrCodeCount)}`;
 
                             for (let i = 0; i < points.rows; i += 4) {
                                 context.beginPath();
