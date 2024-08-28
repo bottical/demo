@@ -33,7 +33,7 @@
     <div id="qrCount">QR Codes Detected: 0</div>
 
     <!-- OpenCV.jsの読み込み -->
-    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()" onerror="console.error('Failed to load OpenCV.js');"></script>
 
     <script>
         let video = document.getElementById('video');
@@ -44,11 +44,12 @@
         // Webカメラ映像の取得
         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
             video.srcObject = stream;
+            video.play();
+            console.log("Camera stream started successfully.");
         }).catch(err => {
             console.error("Error accessing camera: ", err);
         });
 
-        // OpenCV.jsがロードされたときに呼び出される
         function onOpenCvReady() {
             console.log("OpenCV.js is ready");
 
@@ -57,39 +58,40 @@
             let cap = new cv.VideoCapture(video);
 
             const detectQR = () => {
-                cap.read(src);
-                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                try {
+                    cap.read(src);
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-                let qrCodeDetector = new cv.QRCodeDetector();
-                let points = new cv.Mat();
-                let rect = new cv.Rect(0, 0, canvas.width, canvas.height);
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                qrCountElement.innerHTML = "QR Codes Detected: 0";
-                
-                // QRコードを検出
-                if (qrCodeDetector.detect(gray, points)) {
-                    qrCodeCount = points.rows / 4; // 各QRコードごとに4つのポイントがある
-                    qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
+                    let qrCodeDetector = new cv.QRCodeDetector();
+                    let points = new cv.Mat();
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    qrCountElement.innerHTML = "QR Codes Detected: 0";
+                    
+                    if (qrCodeDetector.detect(gray, points)) {
+                        let qrCodeCount = points.rows / 4;
+                        qrCountElement.innerHTML = `QR Codes Detected: ${qrCodeCount}`;
 
-                    // QRコードをマーキング
-                    for (let i = 0; i < points.rows; i += 4) {
-                        context.beginPath();
-                        context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
-                        for (let j = 1; j < 4; j++) {
-                            context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                        for (let i = 0; i < points.rows; i += 4) {
+                            context.beginPath();
+                            context.moveTo(points.floatAt(i, 0), points.floatAt(i, 1));
+                            for (let j = 1; j < 4; j++) {
+                                context.lineTo(points.floatAt(i + j, 0), points.floatAt(i + j, 1));
+                            }
+                            context.closePath();
+                            context.lineWidth = 4;
+                            context.strokeStyle = "red";
+                            context.stroke();
                         }
-                        context.closePath();
-                        context.lineWidth = 4;
-                        context.strokeStyle = "red";
-                        context.stroke();
                     }
+
+                    points.delete();
+                } catch (err) {
+                    console.error("Error during QR code detection:", err);
                 }
 
-                // 次のフレーム処理をスケジュール
                 requestAnimationFrame(detectQR);
             };
 
-            // 最初のフレーム処理を開始
             requestAnimationFrame(detectQR);
         }
     </script>
