@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>セット組作業検品デモ</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database.js"></script>
     <style>
         .set-pattern { margin-bottom: 20px; }
         .barcode-list { margin-top: 20px; }
@@ -39,9 +41,28 @@
         <label class="form-label">完了セット数:</label>
         <span id="setCount">0</span>
     </div>
+
+    <div class="mt-4">
+        <button id="exportHistory" class="btn btn-primary">検品履歴を出力</button>
+    </div>
 </div>
 
 <script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        databaseURL: "YOUR_DATABASE_URL",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     document.addEventListener('DOMContentLoaded', function() {
         const setPatterns = {
             set1: ['商品A', '商品B', '商品C'],
@@ -51,6 +72,7 @@
         let currentSet = [];
         let completedSets = 0;
         const scannedItems = new Set();
+        const scanHistory = [];
 
         document.getElementById('setSelect').addEventListener('change', function() {
             const selectedSet = this.value;
@@ -75,9 +97,31 @@
                         document.getElementById('completionMessage').style.display = 'block';
                         completedSets++;
                         document.getElementById('setCount').textContent = completedSets;
+
+                        // Save to Firebase DB
+                        const timestamp = new Date().toISOString();
+                        const historyEntry = {
+                            setPattern: currentSet,
+                            completedAt: timestamp,
+                            items: Array.from(scannedItems)
+                        };
+                        scanHistory.push(historyEntry);
+                        firebase.database().ref('scanHistory').push(historyEntry);
                     }
                 }
             }
+        });
+
+        document.getElementById('exportHistory').addEventListener('click', function() {
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + scanHistory.map(e => `${e.completedAt},${e.setPattern.join('|')},${e.items.join('|')}`).join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "scan_history.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
     });
 </script>
