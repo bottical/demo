@@ -136,7 +136,6 @@
       // 録画停止タイマー
       setTimeout(() => {
         recorder.stop();
-        alert(`録画停止: カメラ ${cameraId}, バーコード ${barcode}`);
       }, recordingDuration * 1000); // 秒からミリ秒へ変換
     }
 
@@ -150,8 +149,16 @@
         return;
       }
 
-      // 仮にカメラIDを固定（カメラ0を使用）
-      const cameraId = 'camera-0';
+      // バーコードの下4桁を取得
+      const last4Digits = barcode.slice(-4);
+      const cameraIndex = parseInt(last4Digits) - 1; // 下4桁が "0001" → camera-0
+
+      if (cameraIndex < 0 || cameraIndex >= cameras.length) {
+        alert(`バーコード ${last4Digits} に対応するカメラが見つかりません`);
+        return;
+      }
+
+      const cameraId = `camera-${cameraIndex}`;
       startRecording(cameraId, barcode);
     });
 
