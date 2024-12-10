@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>バーコード入力による録画制御</title>
+</head>
+<body>
+  <h1>バーコード入力で録画制御</h1>
+  <form id="barcode-form">
+    <label for="barcode">バーコードを入力してください:</label>
+    <input type="text" id="barcode" name="barcode">
+    <button type="submit">録画開始</button>
+  </form>
+  <div id="videos-container"></div>
+
+  <script>
+    const videosContainer = document.getElementById('videos-container');
+    const barcodeForm = document.getElementById('barcode-form');
+    let cameras = [];
+    let recorders = {};
+
+    async function initializeCameras() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(device => device.kind === 'videoinput');
+
+      for (const [index, device] of videoInputs.entries()) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: device.deviceId }
+        });
+
+        // カメラ情報を保存
+        cameras.push({ id: `camera-${index}`, stream });
+
+        // 動画要素を作成
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.style.width = '300px';
+        video.setAttribute('data-camera-id', `camera-${index}`);
+        videosContainer.appendChild(video);
+      }
+    }
+
+    // 録画開始処理
+    function startRecording(cameraId, barcode) {
+      const camera = cameras.find(c => c.id === cameraId);
+      if (!camera) {
+        alert(`カメラID ${cameraId} が見つかりません`);
+        return;
+      }
+
+      // MediaRecorderの初期化
+      const recorder = new MediaRecorder(camera.stream);
+      recorders[cameraId] = recorder;
+
+      recorder.ondataavailable = event => {
+        const blob = new Blob([event.data], { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+
+        // 録画ファイルをダウンロード
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `recording-${barcode}-${cameraId}.webm`;
+        link.textContent = `Download recording for ${barcode}`;
+        document.body.appendChild(link);
+      };
+
+      recorder.start();
+      alert(`録画開始: カメラ ${cameraId}, バーコード ${barcode}`);
+    }
+
+    // フォーム送信時の処理
+    barcodeForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const barcode = document.getElementById('barcode').value;
+
+      if (!barcode) {
+        alert('バーコードを入力してください');
+        return;
+      }
+
+      // 仮にカメラIDを固定（カメラ0を使用）
+      const cameraId = 'camera-0';
+      startRecording(cameraId, barcode);
+    });
+
+    // 初期化
+    initializeCameras();
+  </script>
+</body>
+</html>
