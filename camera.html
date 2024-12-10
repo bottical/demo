@@ -112,17 +112,23 @@
         }, 1000);
       }
 
+      const chunks = []; // 録画データを保持
       recorder.ondataavailable = event => {
-        const blob = new Blob([event.data], { type: 'video/webm' });
+        chunks.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
 
-        // 録画ファイルをダウンロードリンク生成
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `recording-${barcode}-${cameraId}.webm`;
-        link.textContent = `Download recording for ${barcode} (Camera ${cameraId})`;
-        link.style.display = 'block';
-        document.body.appendChild(link);
+        // 自動ダウンロード処理
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `recording-${barcode}-${cameraId}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove(); // ダウンロード後にリンク要素を削除
+        URL.revokeObjectURL(url); // URL解放
       };
 
       recorder.start();
