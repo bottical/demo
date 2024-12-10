@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>バーコード入力による録画制御</title>
+  <title>カメラ制御とバーコード録画</title>
 </head>
 <body>
-  <h1>バーコード入力で録画制御</h1>
+  <h1>カメラ制御とバーコード録画</h1>
   <form id="barcode-form">
     <label for="barcode">バーコードを入力してください:</label>
     <input type="text" id="barcode" name="barcode">
@@ -28,16 +28,41 @@
         });
 
         // カメラ情報を保存
-        cameras.push({ id: `camera-${index}`, stream });
+        cameras.push({ id: `camera-${index}`, stream, deviceName: device.label });
 
-        // 動画要素を作成
+        // コンテナ作成
+        const container = document.createElement('div');
+        container.style.marginBottom = '20px';
+
+        // カメラ名表示
+        const label = document.createElement('p');
+        label.textContent = `Camera ${index + 1}: ${device.label}`;
+        container.appendChild(label);
+
+        // 動画要素作成
         const video = document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
         video.muted = true;
         video.style.width = '300px';
         video.setAttribute('data-camera-id', `camera-${index}`);
-        videosContainer.appendChild(video);
+        container.appendChild(video);
+
+        // オン/オフボタン作成
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = '映像をオフ';
+        toggleButton.onclick = () => {
+          if (video.style.display === 'none') {
+            video.style.display = 'block';
+            toggleButton.textContent = '映像をオフ';
+          } else {
+            video.style.display = 'none';
+            toggleButton.textContent = '映像をオン';
+          }
+        };
+        container.appendChild(toggleButton);
+
+        videosContainer.appendChild(container);
       }
     }
 
