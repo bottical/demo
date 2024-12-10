@@ -38,6 +38,8 @@
         container.style.marginBottom = '20px';
         container.style.border = '1px solid #ddd';
         container.style.padding = '10px';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
 
         // カメラ名表示
         const label = document.createElement('p');
@@ -69,6 +71,14 @@
         };
         container.appendChild(toggleButton);
 
+        // 残り時間表示
+        const timer = document.createElement('p');
+        timer.textContent = '残り時間: - 秒';
+        timer.style.marginLeft = '20px';
+        timer.style.fontWeight = 'bold';
+        timer.setAttribute('data-timer-id', `timer-${index}`);
+        container.appendChild(timer);
+
         videosContainer.appendChild(container);
       }
     }
@@ -85,6 +95,23 @@
       const recorder = new MediaRecorder(camera.stream);
       recorders[cameraId] = recorder;
 
+      // 録画時間設定 (例: 5秒)
+      const recordingDuration = 5; // 秒
+      let remainingTime = recordingDuration;
+
+      // タイマー要素を取得
+      const timerElement = document.querySelector(`[data-timer-id="timer-${cameraId.split('-')[1]}"]`);
+      if (timerElement) {
+        const interval = setInterval(() => {
+          timerElement.textContent = `残り時間: ${remainingTime} 秒`;
+          remainingTime--;
+
+          if (remainingTime < 0) {
+            clearInterval(interval);
+          }
+        }, 1000);
+      }
+
       recorder.ondataavailable = event => {
         const blob = new Blob([event.data], { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
@@ -100,11 +127,11 @@
 
       recorder.start();
 
-      // 録画停止タイマー（5秒後に停止）
+      // 録画停止タイマー
       setTimeout(() => {
         recorder.stop();
         alert(`録画停止: カメラ ${cameraId}, バーコード ${barcode}`);
-      }, 5000); // 5000ms = 5秒
+      }, recordingDuration * 1000); // 秒からミリ秒へ変換
     }
 
     // フォーム送信時の処理
