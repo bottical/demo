@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>カメラ制御とバーコード録画</title>
 </head>
 <body>
   <h1>カメラ制御とバーコード録画</h1>
   <form id="barcode-form">
     <label for="barcode">バーコードを入力してください:</label>
-    <input type="text" id="barcode" name="barcode">
+    <input type="text" id="barcode" name="barcode" required>
     <button type="submit">録画開始</button>
   </form>
   <div id="videos-container"></div>
@@ -18,6 +20,7 @@
     let cameras = [];
     let recorders = {};
 
+    // カメラ初期化
     async function initializeCameras() {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = devices.filter(device => device.kind === 'videoinput');
@@ -33,10 +36,12 @@
         // コンテナ作成
         const container = document.createElement('div');
         container.style.marginBottom = '20px';
+        container.style.border = '1px solid #ddd';
+        container.style.padding = '10px';
 
         // カメラ名表示
         const label = document.createElement('p');
-        label.textContent = `Camera ${index + 1}: ${device.label}`;
+        label.textContent = `Camera ${index + 1}: ${device.label || 'カメラ名不明'}`;
         container.appendChild(label);
 
         // 動画要素作成
@@ -45,12 +50,14 @@
         video.autoplay = true;
         video.muted = true;
         video.style.width = '300px';
+        video.style.display = 'block';
         video.setAttribute('data-camera-id', `camera-${index}`);
         container.appendChild(video);
 
-        // オン/オフボタン作成
+        // 映像オン/オフボタン作成
         const toggleButton = document.createElement('button');
         toggleButton.textContent = '映像をオフ';
+        toggleButton.style.marginRight = '10px';
         toggleButton.onclick = () => {
           if (video.style.display === 'none') {
             video.style.display = 'block';
@@ -82,22 +89,28 @@
         const blob = new Blob([event.data], { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
 
-        // 録画ファイルをダウンロード
+        // 録画ファイルをダウンロードリンク生成
         const link = document.createElement('a');
         link.href = url;
         link.download = `recording-${barcode}-${cameraId}.webm`;
-        link.textContent = `Download recording for ${barcode}`;
+        link.textContent = `Download recording for ${barcode} (Camera ${cameraId})`;
+        link.style.display = 'block';
         document.body.appendChild(link);
       };
 
       recorder.start();
-      alert(`録画開始: カメラ ${cameraId}, バーコード ${barcode}`);
+
+      // 録画停止タイマー（5秒後に停止）
+      setTimeout(() => {
+        recorder.stop();
+        alert(`録画停止: カメラ ${cameraId}, バーコード ${barcode}`);
+      }, 5000); // 5000ms = 5秒
     }
 
     // フォーム送信時の処理
     barcodeForm.addEventListener('submit', event => {
       event.preventDefault();
-      const barcode = document.getElementById('barcode').value;
+      const barcode = document.getElementById('barcode').value.trim();
 
       if (!barcode) {
         alert('バーコードを入力してください');
