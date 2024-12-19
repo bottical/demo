@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QRコードカウント（デバッグ付き）</title>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <title>QRコードカウント（OpenCV.js）</title>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,7 +28,7 @@
   </style>
 </head>
 <body>
-  <h1>QRコードカウントアプリ（デバッグ付き）</h1>
+  <h1>QRコードカウントアプリ（OpenCV.js）</h1>
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
   <br>
@@ -42,6 +42,11 @@
     const captureBtn = document.getElementById("captureBtn");
     const qrCountDisplay = document.getElementById("qrCount");
 
+    // OpenCV.js の読み込み完了後に動作
+    document.addEventListener("DOMContentLoaded", () => {
+      console.log("OpenCV.js の読み込みが完了しました");
+    });
+
     // Webカメラを開始
     navigator.mediaDevices
       .getUserMedia({ video: true })
@@ -54,29 +59,35 @@
     // ボタンをクリックしたときの動作
     captureBtn.addEventListener("click", () => {
       console.log("静止画を撮影しています...");
-      
+
       // Canvasに現在のフレームを描画
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       console.log("Canvasに画像を描画しました");
 
-      // Canvasから画像データを取得
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      console.log("画像データを取得しました");
+      // OpenCV.js を使ったQRコード検出
+      const src = cv.imread(canvas);
+      const gray = new cv.Mat();
+      const qrDetector = new cv.QRCodeDetector();
 
-      // QRコードを検出
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
-      console.log("QRコード検出結果:", code);
+      // グレースケール変換
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-      // QRコードの個数を表示
-      if (code) {
-        console.log("QRコードを検出しました:", code.data);
-        qrCountDisplay.textContent = "1"; // 現在は1つのコードのみ対応
-      } else {
-        console.log("QRコードは検出されませんでした");
-        qrCountDisplay.textContent = "0";
-      }
+      // QRコード検出処理
+      qrDetector.detectMulti(gray, (results) => {
+        console.log("検出結果:", results);
+        if (results.length > 0) {
+          qrCountDisplay.textContent = results.length.toString();
+          console.log(`QRコードを${results.length}個検出しました`);
+        } else {
+          qrCountDisplay.textContent = "0";
+          console.log("QRコードは検出されませんでした");
+        }
+        src.delete();
+        gray.delete();
+        qrDetector.delete();
+      });
     });
   </script>
 </body>
