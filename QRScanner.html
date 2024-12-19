@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QRコードカウント（OpenCV.js）</title>
+  <title>QRコードカウント（OpenCV.js修正版）</title>
   <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
   <style>
     body {
@@ -28,7 +28,7 @@
   </style>
 </head>
 <body>
-  <h1>QRコードカウントアプリ（OpenCV.js）</h1>
+  <h1>QRコードカウントアプリ（OpenCV.js修正版）</h1>
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
   <br>
@@ -74,20 +74,23 @@
       // グレースケール変換
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
-      // QRコード検出処理
-      qrDetector.detectMulti(gray, (results) => {
-        console.log("検出結果:", results);
-        if (results.length > 0) {
-          qrCountDisplay.textContent = results.length.toString();
-          console.log(`QRコードを${results.length}個検出しました`);
-        } else {
-          qrCountDisplay.textContent = "0";
-          console.log("QRコードは検出されませんでした");
-        }
-        src.delete();
-        gray.delete();
-        qrDetector.delete();
-      });
+      // QRコードを検出してデコード
+      const points = new cv.Mat();
+      const decodedObjects = qrDetector.detectAndDecodeMulti(gray, points);
+
+      if (decodedObjects.length > 0) {
+        console.log(`QRコードを${decodedObjects.length}個検出しました`);
+        qrCountDisplay.textContent = decodedObjects.length.toString();
+      } else {
+        console.log("QRコードは検出されませんでした");
+        qrCountDisplay.textContent = "0";
+      }
+
+      // メモリ解放
+      src.delete();
+      gray.delete();
+      points.delete();
+      qrDetector.delete();
     });
   </script>
 </body>
