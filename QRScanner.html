@@ -1,99 +1,83 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QRコードカウント（OpenCV.js 修正版）</title>
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-    }
-    video, canvas {
-      border: 1px solid #ccc;
-      max-width: 100%;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-    p {
-      font-size: 18px;
-      margin-top: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>QRコードカウンター</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        #wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        #video, #canvas {
+            width: 100%;
+            height: auto;
+        }
+        #qr-count {
+            margin-top: 20px;
+            font-size: 1.5em;
+        }
+    </style>
 </head>
 <body>
-  <h1>QRコードカウントアプリ（OpenCV.js 修正版）</h1>
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" style="display:none;"></canvas>
-  <br>
-  <button id="captureBtn">静止画を撮影してカウント</button>
-  <p>QRコードの個数: <span id="qrCount">0</span></p>
+    <h1>QRコードカウンター</h1>
+    <div id="wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    <div id="qr-count">検出したQRコードの数: <span id="count">0</span></div>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const countDisplay = document.getElementById('count');
 
-  <script>
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    const captureBtn = document.getElementById("captureBtn");
-    const qrCountDisplay = document.getElementById("qrCount");
+        // カメラ映像の取得
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+                requestAnimationFrame(tick);
+            })
+            .catch(err => {
+                console.error('カメラのアクセスに失敗しました:', err);
+            });
 
-    // OpenCV.js の読み込み完了後に動作
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("OpenCV.js の読み込みが完了しました");
-    });
+        function tick() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-    // Webカメラを開始
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((stream) => {
-        console.log("カメラストリームを取得しました");
-        video.srcObject = stream;
-      })
-      .catch((err) => console.error("カメラのアクセスに失敗しました:", err));
+                if (code) {
+                    drawRectangle(code.location);
+                    countDisplay.textContent = '1';
+                } else {
+                    countDisplay.textContent = '0';
+                }
+            }
+            requestAnimationFrame(tick);
+        }
 
-    // ボタンをクリックしたときの動作
-    captureBtn.addEventListener("click", () => {
-      console.log("静止画を撮影しています...");
-
-      // Canvasに現在のフレームを描画
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      console.log("Canvasに画像を描画しました");
-
-      // OpenCV.js を使ったQRコード検出
-      const src = cv.imread(canvas);
-      const gray = new cv.Mat();
-      const points = new cv.Mat(); // QRコードの位置情報を格納
-      const qrDetector = new cv.QRCodeDetector();
-
-      // グレースケール変換
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-      // QRコードを検出してデコード
-      const decodedObjects = new cv.StringVector(); // デコード結果を格納するオブジェクト
-      const success = qrDetector.detectAndDecodeMulti(gray, decodedObjects, points);
-
-      if (success && decodedObjects.size() > 0) {
-        console.log(`QRコードを${decodedObjects.size()}個検出しました`);
-        qrCountDisplay.textContent = decodedObjects.size().toString();
-      } else {
-        console.log("QRコードは検出されませんでした");
-        qrCountDisplay.textContent = "0";
-      }
-
-      // メモリ解放
-      src.delete();
-      gray.delete();
-      points.delete();
-      qrDetector.delete();
-      decodedObjects.delete();
-    });
-  </script>
+        function drawRectangle(location) {
+            context.beginPath();
+            context.moveTo(location.topLeftCorner.x, location.topLeftCorner.y);
+            context.lineTo(location.topRightCorner.x, location.topRightCorner.y);
+            context.lineTo(location.bottomRightCorner.x, location.bottomRightCorner.y);
+            context.lineTo(location.bottomLeftCorner.x, location.bottomLeftCorner.y);
+            context.closePath();
+            context.lineWidth = 4;
+            context.strokeStyle = '#FF3B58';
+            context.stroke();
+        }
+    </script>
 </body>
 </html>
