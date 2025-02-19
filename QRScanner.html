@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QRコードカウンター</title>
+    <title>複数QRコードカウンター</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -25,13 +25,13 @@
     </style>
 </head>
 <body>
-    <h1>QRコードカウンター</h1>
+    <h1>複数QRコードカウンター</h1>
     <div id="wrapper">
         <video id="video" autoplay muted playsinline></video>
         <canvas id="canvas"></canvas>
     </div>
     <div id="qr-count">検出したQRコードの数: <span id="count">0</span></div>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://docs.opencv.org/4.x/opencv.js"></script>
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -55,24 +55,52 @@
                 canvas.height = video.videoHeight;
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-                if (code) {
-                    drawRectangle(code.location);
-                    countDisplay.textContent = '1';
+                // OpenCVで画像を処理
+                const src = cv.matFromImageData(imageData);
+                const gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+                // QRコード検出器の初期化
+                const qrCodeDetector = new cv.QRCodeDetector();
+                const points = new cv.MatVector();
+                const decoded = new cv.StringVector();
+
+                // 複数のQRコードを検出
+                const qrCount = qrCodeDetector.detectMulti(gray, points);
+                if (qrCount > 0) {
+                    qrCodeDetector.decodeMulti(gray, points, decoded);
+                    countDisplay.textContent = qrCount;
+
+                    // 各QRコードの位置とデータを表示
+                    for (let i = 0; i < qrCount; i++) {
+                        const pointArray = points.get(i).data32S;
+                        const corners = [];
+                        for (let j = 0; j < pointArray.length; j += 2) {
+                            corners.push({ x: pointArray[j], y: pointArray[j + 1] });
+                        }
+                        drawRectangle(corners);
+                        console.log(`QRコード${i + 1}: ${decoded.get(i)}`);
+                    }
                 } else {
                     countDisplay.textContent = '0';
                 }
+
+                // メモリの解放
+                src.delete();
+                gray.delete();
+                points.delete();
+                decoded.delete();
             }
             requestAnimationFrame(tick);
         }
 
-        function drawRectangle(location) {
+        function drawRectangle(corners) {
             context.beginPath();
-            context.moveTo(location.topLeftCorner.x, location.topLeftCorner.y);
-            context.lineTo(location.topRightCorner.x, location.topRightCorner.y);
-            context.lineTo(location.bottomRightCorner.x, location.bottomRightCorner.y);
-            context.lineTo(location.bottomLeftCorner.x, location.bottomLeftCorner.y);
+            context.moveTo(corners[0].x, corners[0].y);
+            for (let i = 1; i < corners.length; i++) {
+                context.lineTo(corners[i].x, corners[i].y);
+            }
             context.closePath();
             context.lineWidth = 4;
             context.strokeStyle = '#FF3B58';
