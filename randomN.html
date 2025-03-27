@@ -72,6 +72,9 @@
 
   <script>
     function generateAndDisplayNumber() {
+      if (navigator.vibrate) {
+      navigator.vibrate(100); // 100ms 振動
+      }
       const num = Math.floor(Math.random() * 100) + 1;
       const percent = Math.round((num / 100) * 100);
 
