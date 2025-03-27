@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ランダムナンバー表示</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    .number {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    .bar-container {
+      width: 80%;
+      height: 20px;
+      background: #eee;
+      margin: 0 auto;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar {
+      height: 100%;
+      background: #4caf50;
+      transition: width 0.3s;
+    }
+    .percent-label {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #555;
+    }
+    .refresh-btn {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .refresh-btn:hover {
+      background: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="number" id="randomNumber">--</div>
+  <div class="bar-container">
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="percent-label" id="percentLabel">--%</div>
+
+  <button class="refresh-btn" onclick="generateAndDisplayNumber()">更新</button>
+
+  <script>
+    function generateAndDisplayNumber() {
+      const num = Math.floor(Math.random() * 100) + 1;
+      const percent = Math.round((num / 100) * 100);
+
+      document.getElementById("randomNumber").textContent = `あなたの番号：${num}`;
+      document.getElementById("bar").style.width = `${percent}%`;
+      document.getElementById("percentLabel").textContent = `${percent}% の位置`;
+    }
+
+    // 初回実行
+    generateAndDisplayNumber();
+  </script>
+</body>
+</html>
