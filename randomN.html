@@ -2,25 +2,27 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ランダムナンバー表示</title>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
-      padding: 40px;
+      padding: 5vw;
+      box-sizing: border-box;
     }
     .number {
-      font-size: 48px;
-      margin-bottom: 20px;
+      font-size: 8vw;
+      margin-bottom: 5vw;
     }
     .bar-container {
-      width: 80%;
+      width: 100%;
+      max-width: 400px;
       height: 20px;
       background: #eee;
       margin: 0 auto;
       border-radius: 10px;
       overflow: hidden;
-      position: relative;
     }
     .bar {
       height: 100%;
@@ -28,19 +30,30 @@
       transition: width 0.3s;
     }
     .percent-label {
-      margin-top: 10px;
-      font-size: 14px;
+      margin-top: 2vw;
+      font-size: 4vw;
       color: #555;
     }
     .refresh-btn {
-      margin-top: 30px;
+      margin-top: 6vw;
       padding: 10px 20px;
-      font-size: 16px;
+      font-size: 4.5vw;
       background: #2196f3;
       color: white;
       border: none;
       border-radius: 8px;
       cursor: pointer;
+    }
+    @media (min-width: 600px) {
+      .number {
+        font-size: 48px;
+      }
+      .percent-label {
+        font-size: 16px;
+      }
+      .refresh-btn {
+        font-size: 16px;
+      }
     }
     .refresh-btn:hover {
       background: #1976d2;
@@ -63,7 +76,7 @@
 
       document.getElementById("randomNumber").textContent = `あなたの番号：${num}`;
       document.getElementById("bar").style.width = `${percent}%`;
-      document.getElementById("percentLabel").textContent = `${percent}% /100`;
+      document.getElementById("percentLabel").textContent = `${num}/100`;
     }
 
     // 初回実行
