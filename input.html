@@ -128,64 +128,70 @@
     const db = getFirestore(app);
     const entriesRef = collection(db, "entries");
 
-    document.getElementById("submitBtn").addEventListener("click", async () => {
-      const name = document.getElementById("name").value.trim();
-      const word = document.getElementById("word").value.trim();
-      const status = document.getElementById("status");
+document.getElementById("submitBtn").addEventListener("click", async () => {
+  navigator.vibrate?.(100); // 📳 バイブ追加（対応端末のみ）
 
-      if (!name || !word) {
-        status.textContent = "名前とワードを入力してください。";
-        return;
-      }
+  const name = document.getElementById("name").value.trim();
+  const word = document.getElementById("word").value.trim();
+  const status = document.getElementById("status");
 
-      try {
-        await addDoc(entriesRef, {
-          name,
-          word,
-          createdAt: new Date()
-        });
-        status.textContent = "送信しました！";
-        document.getElementById("name").value = "";
-        document.getElementById("word").value = "";
-      } catch (e) {
-        console.error("送信エラー:", e);
-        status.textContent = "送信に失敗しました。";
-      }
+  if (!name || !word) {
+    status.textContent = "名前とワードを入力してください。";
+    return;
+  }
+
+  try {
+    await addDoc(entriesRef, {
+      name,
+      word,
+      createdAt: new Date()
     });
+    status.textContent = "送信しました！";
+    // 名前は保持し、ワードだけリセット
+    document.getElementById("word").value = "";
+  } catch (e) {
+    console.error("送信エラー:", e);
+    status.textContent = "送信に失敗しました。";
+  }
+});
 
-    document.getElementById("showResultsBtn").addEventListener("click", async () => {
-      const resultsList = document.getElementById("results");
-      resultsList.innerHTML = "";
+document.getElementById("showResultsBtn").addEventListener("click", async () => {
+  navigator.vibrate?.(50); // 📳 バイブ
 
-      try {
-        const snapshot = await getDocs(query(entriesRef, orderBy("createdAt")));
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const li = document.createElement("li");
-          li.textContent = `${data.name}：${data.word}`;
-          resultsList.appendChild(li);
-        });
-      } catch (e) {
-        console.error("表示エラー:", e);
-        document.getElementById("status").textContent = "結果表示に失敗しました。";
-      }
+  const resultsList = document.getElementById("results");
+  resultsList.innerHTML = "";
+
+  try {
+    const snapshot = await getDocs(query(entriesRef, orderBy("createdAt")));
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const li = document.createElement("li");
+      li.textContent = `${data.name}：${data.word}`;
+      resultsList.appendChild(li);
     });
+  } catch (e) {
+    console.error("表示エラー:", e);
+    document.getElementById("status").textContent = "結果表示に失敗しました。";
+  }
+});
 
-    document.getElementById("resetBtn").addEventListener("click", async () => {
-      const confirmReset = confirm("すべてのデータを削除しますか？");
-      if (!confirmReset) return;
+document.getElementById("resetBtn").addEventListener("click", async () => {
+  navigator.vibrate?.(100); // 📳 バイブ
 
-      try {
-        const snapshot = await getDocs(entriesRef);
-        const deletions = snapshot.docs.map(docSnap => deleteDoc(doc(db, "entries", docSnap.id)));
-        await Promise.all(deletions);
-        document.getElementById("status").textContent = "リセット完了しました。";
-        document.getElementById("results").innerHTML = "";
-      } catch (e) {
-        console.error("リセットエラー:", e);
-        document.getElementById("status").textContent = "リセットに失敗しました。";
-      }
-    });
+  const confirmReset = confirm("すべてのデータを削除しますか？");
+  if (!confirmReset) return;
+
+  try {
+    const snapshot = await getDocs(entriesRef);
+    const deletions = snapshot.docs.map(docSnap => deleteDoc(doc(db, "entries", docSnap.id)));
+    await Promise.all(deletions);
+    document.getElementById("status").textContent = "リセット完了しました。";
+    document.getElementById("results").innerHTML = "";
+  } catch (e) {
+    console.error("リセットエラー:", e);
+    document.getElementById("status").textContent = "リセットに失敗しました。";
+  }
+});
   </script>
 </body>
 </html>
