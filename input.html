@@ -4,57 +4,105 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>プレイヤーフォーム</title>
-   <style>
+  <style>
     body {
-      margin-top: 5vh;
-      font-family: sans-serif;
-      text-align: center;
+      margin: 0;
       padding: 5vw;
+      font-family: 'Helvetica', 'Arial', sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
       box-sizing: border-box;
+      text-align: center;
     }
+
+    h2, h3 {
+      font-size: 6vw;
+      margin-bottom: 4vw;
+    }
+
+    input[type="text"] {
+      width: 80%;
+      padding: 3vw;
+      margin: 2vw 0;
+      font-size: 4.5vw;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+
     .btn {
-      margin-top: 6vw;
-      padding: 10px 20px;
+      display: inline-block;
+      margin: 3vw 2vw;
+      padding: 3vw 5vw;
       font-size: 4.5vw;
       background: #2196f3;
       color: white;
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: background 0.3s ease;
     }
-    @media (min-width: 600px) {
-      .number {
-        font-size: 48px;
-      }
-      .percent-label {
-        font-size: 16px;
-      }
-      .refresh-btn {
-        font-size: 16px;
-      }
-    }
-    .refresh-btn:hover {
+
+    .btn:hover {
       background: #1976d2;
+    }
+
+    #status {
+      font-size: 4vw;
+      color: #555;
+      margin-top: 2vw;
+    }
+
+    ul#results {
+      list-style: none;
+      padding: 0;
+      margin-top: 4vw;
+      font-size: 4.5vw;
+    }
+
+    ul#results li {
+      background: #fff;
+      margin: 2vw auto;
+      padding: 3vw;
+      width: 90%;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    @media (min-width: 600px) {
+      h2, h3 {
+        font-size: 32px;
+      }
+      input[type="text"] {
+        font-size: 20px;
+      }
+      .btn {
+        font-size: 18px;
+      }
+      ul#results li {
+        font-size: 18px;
+      }
     }
   </style>
 </head>
 <body>
   <h2>名前とワードを入力</h2>
-  <input type="text" id="name" placeholder="名前"/><br><br>
-  <input type="text" id="word" placeholder="ワード"/><br><br>
-  <button id="submitBtn">送信</button>
+  <input type="text" id="name" placeholder="名前"/><br>
+  <input type="text" id="word" placeholder="ワード"/><br>
+  <button id="submitBtn" class="btn">送信</button>
+
   <p id="status"></p>
 
-  <hr />
+  <hr style="margin: 5vw 0;" />
 
-  <button id="showResultsBtn">結果発表</button>
-  <button id="resetBtn">リセット</button>
+  <button id="showResultsBtn" class="btn">結果発表</button>
+  <button id="resetBtn" class="btn">リセット</button>
 
   <h3>全員の入力一覧</h3>
   <ul id="results"></ul>
 
   <script type="module">
-    // Firebase SDK 読み込み
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import {
       getFirestore,
@@ -71,7 +119,7 @@
       apiKey: "AIzaSyAWZRdhMJgW23A4L-CWZPn30iMoZNCZzjc",
       authDomain: "input-3b872.firebaseapp.com",
       projectId: "input-3b872",
-      storageBucket: "input-3b872.firebasestorage.app",
+      storageBucket: "input-3b872.appspot.com",
       messagingSenderId: "8756337072",
       appId: "1:8756337072:web:d162fc4f3b5ec53af0de75"
     };
@@ -80,7 +128,6 @@
     const db = getFirestore(app);
     const entriesRef = collection(db, "entries");
 
-    // 投稿処理
     document.getElementById("submitBtn").addEventListener("click", async () => {
       const name = document.getElementById("name").value.trim();
       const word = document.getElementById("word").value.trim();
@@ -106,7 +153,6 @@
       }
     });
 
-    // 結果発表（手動表示）
     document.getElementById("showResultsBtn").addEventListener("click", async () => {
       const resultsList = document.getElementById("results");
       resultsList.innerHTML = "";
@@ -125,7 +171,6 @@
       }
     });
 
-    // 全削除（リセット）
     document.getElementById("resetBtn").addEventListener("click", async () => {
       const confirmReset = confirm("すべてのデータを削除しますか？");
       if (!confirmReset) return;
