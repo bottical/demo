@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>プレイヤーフォーム</title>
+</head>
+<body>
+  <h2>名前とワードを入力</h2>
+  <input type="text" id="name" placeholder="名前"/><br><br>
+  <input type="text" id="word" placeholder="ワード"/><br><br>
+  <button id="submitBtn">送信</button>
+  <p id="status"></p>
+
+  <hr />
+
+  <button id="showResultsBtn">結果発表</button>
+  <button id="resetBtn">リセット</button>
+
+  <h3>📝 全員の入力一覧</h3>
+  <ul id="results"></ul>
+
+  <script type="module">
+    // Firebase SDK 読み込み
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      deleteDoc,
+      doc,
+      getDocs,
+      query,
+      orderBy
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAWZRdhMJgW23A4L-CWZPn30iMoZNCZzjc",
+      authDomain: "input-3b872.firebaseapp.com",
+      projectId: "input-3b872",
+      storageBucket: "input-3b872.firebasestorage.app",
+      messagingSenderId: "8756337072",
+      appId: "1:8756337072:web:d162fc4f3b5ec53af0de75"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const entriesRef = collection(db, "entries");
+
+    // 投稿処理
+    document.getElementById("submitBtn").addEventListener("click", async () => {
+      const name = document.getElementById("name").value.trim();
+      const word = document.getElementById("word").value.trim();
+      const status = document.getElementById("status");
+
+      if (!name || !word) {
+        status.textContent = "名前とワードを入力してください。";
+        return;
+      }
+
+      try {
+        await addDoc(entriesRef, {
+          name,
+          word,
+          createdAt: new Date()
+        });
+        status.textContent = "送信しました！";
+        document.getElementById("name").value = "";
+        document.getElementById("word").value = "";
+      } catch (e) {
+        console.error("送信エラー:", e);
+        status.textContent = "送信に失敗しました。";
+      }
+    });
+
+    // 結果発表（手動表示）
+    document.getElementById("showResultsBtn").addEventListener("click", async () => {
+      const resultsList = document.getElementById("results");
+      resultsList.innerHTML = "";
+
+      try {
+        const snapshot = await getDocs(query(entriesRef, orderBy("createdAt")));
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${data.name}：${data.word}`;
+          resultsList.appendChild(li);
+        });
+      } catch (e) {
+        console.error("表示エラー:", e);
+        document.getElementById("status").textContent = "結果表示に失敗しました。";
+      }
+    });
+
+    // 全削除（リセット）
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      const confirmReset = confirm("すべてのデータを削除しますか？");
+      if (!confirmReset) return;
+
+      try {
+        const snapshot = await getDocs(entriesRef);
+        const deletions = snapshot.docs.map(docSnap => deleteDoc(doc(db, "entries", docSnap.id)));
+        await Promise.all(deletions);
+        document.getElementById("status").textContent = "リセット完了しました。";
+        document.getElementById("results").innerHTML = "";
+      } catch (e) {
+        console.error("リセットエラー:", e);
+        document.getElementById("status").textContent = "リセットに失敗しました。";
+      }
+    });
+  </script>
+</body>
+</html>
