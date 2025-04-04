@@ -156,17 +156,44 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("showResultsBtn").addEventListener("click", async () => {
-  navigator.vibrate?.(50); // 📳 バイブ
-
+  navigator.vibrate?.(50);
   const resultsList = document.getElementById("results");
   resultsList.innerHTML = "";
 
   try {
     const snapshot = await getDocs(query(entriesRef, orderBy("createdAt")));
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const id = docSnap.id;
+
       const li = document.createElement("li");
       li.textContent = `${data.name}：${data.word}`;
+
+      // ❌ 削除ボタンの追加
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "❌削除";
+      delBtn.style.marginLeft = "10px";
+      delBtn.style.fontSize = "4vw";
+      delBtn.style.padding = "1vw 2vw";
+      delBtn.style.borderRadius = "5px";
+      delBtn.style.background = "#f44336";
+      delBtn.style.color = "white";
+      delBtn.style.border = "none";
+      delBtn.style.cursor = "pointer";
+
+      delBtn.onclick = async () => {
+        const ok = confirm("この投稿を削除しますか？");
+        if (!ok) return;
+        try {
+          await deleteDoc(doc(db, "entries", id));
+          li.remove(); // 即座にUIからも削除
+        } catch (e) {
+          alert("削除に失敗しました");
+          console.error(e);
+        }
+      };
+
+      li.appendChild(delBtn);
       resultsList.appendChild(li);
     });
   } catch (e) {
