@@ -134,7 +134,7 @@ ul#results li {
     const entriesRef = collection(db, "entries");
 
 document.getElementById("submitBtn").addEventListener("click", async () => {
-  navigator.vibrate?.(100); // 📳 バイブ追加（対応端末のみ）
+  navigator.vibrate?.(100); // バイブ追加（対応端末のみ）
 
   const name = document.getElementById("name").value.trim();
   const word = document.getElementById("word").value.trim();
@@ -187,6 +187,7 @@ document.getElementById("showResultsBtn").addEventListener("click", async () => 
       delBtn.style.cursor = "pointer";
 
       delBtn.onclick = async () => {
+      navigator.vibrate?.(100); // バイブ追加（対応端末のみ）
         const ok = confirm("この投稿を削除しますか？");
         if (!ok) return;
         try {
