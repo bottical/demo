@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>あいうえバトル（認証なし版・伸ばし棒対応）</title>
+  <title>あいうえバトル（匿名・50音・リセット対応）</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     #kana-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 400px; margin-top: 16px; }
@@ -28,6 +28,15 @@
       background-color: #4caf50;
       color: white;
     }
+    #resetBtn {
+      margin-top: 20px;
+      background: red;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -41,38 +50,34 @@
   </div>
 
   <div id="game" style="display:none">
-    <h2>エントリー状況</h2>
+    <h2>エントリー状況（伏せられた文字）</h2>
     <div id="entries"></div>
 
     <h2>50音表 + 「ー」</h2>
     <div id="kana-grid"></div>
+
+    <button id="resetBtn">全体リセット</button>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
+    // 🔧 あなたのFirebaseプロジェクト設定に書き換えてください
     const firebaseConfig = {
-    apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
-    authDomain: "aiue-4a249.firebaseapp.com",
-    projectId: "aiue-4a249",
-    storageBucket: "aiue-4a249.firebasestorage.app",
-    messagingSenderId: "490396478753",
-    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
     const setupForm = document.getElementById("form-setup");
-    setupForm.onsubmit = async (e) => {
-      e.preventDefault();
-      const name = document.getElementById("name").value.trim();
-      const chars = document.getElementById("chars").value.trim().split("");
-      await set(ref(db, `entries/${name}`), chars);
-      document.getElementById("setup").style.display = "none";
-      document.getElementById("game").style.display = "";
-    };
-
     const kana = [
       "あ","い","う","え","お",
       "か","き","く","け","こ",
@@ -83,11 +88,21 @@
       "ま","み","む","め","も",
       "や","ゆ","よ",
       "ら","り","る","れ","ろ",
-      "わ","を","ん",
-      "ー"
+      "わ","を","ん","ー"
     ];
-    const grid = document.getElementById("kana-grid");
 
+    let flipsState = {};
+
+    setupForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const chars = document.getElementById("chars").value.trim().split("");
+      await set(ref(db, `entries/${name}`), chars);
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("game").style.display = "";
+    };
+
+    const grid = document.getElementById("kana-grid");
     kana.forEach(c => {
       const btn = document.createElement("button");
       btn.innerHTML = `<div class="card-inner">${c}</div>`;
@@ -106,28 +121,42 @@
       grid.appendChild(btn);
     });
 
-    onValue(ref(db, "entries"), snap => {
+    onValue(ref(db, "flips"), snap => {
+      flipsState = snap.val() || {};
+      document.querySelectorAll(".card-btn").forEach(btn => {
+        const inner = btn.querySelector(".card-inner");
+        if (inner && flipsState[inner.textContent]) {
+          btn.classList.add("flipped");
+        } else {
+          btn.classList.remove("flipped");
+        }
+      });
+      // リフレッシュ entries 表示
+      updateMaskedEntries();
+    });
+
+    onValue(ref(db, "entries"), () => {
+      updateMaskedEntries();
+    });
+
+    async function updateMaskedEntries() {
+      const snap = await get(ref(db, "entries"));
       const el = document.getElementById("entries");
       el.innerHTML = "";
       snap.forEach(s => {
         const name = s.key;
         const arr = s.val() || [];
-        el.innerHTML += `<div>${name}: ${arr.join("")}</div>`;
+        const masked = arr.map(c => flipsState[c] ? c : "●").join("");
+        el.innerHTML += `<div>${name}: ${masked}</div>`;
       });
-    });
+    }
 
-    onValue(ref(db, "flips"), snap => {
-      snap.forEach(s => {
-        const c = s.key;
-        const flipped = s.val();
-        document.querySelectorAll(".card-btn").forEach(btn => {
-          const inner = btn.querySelector(".card-inner");
-          if (inner && inner.textContent === c) {
-            btn.classList.toggle("flipped", !!flipped);
-          }
-        });
-      });
-    });
+    document.getElementById("resetBtn").onclick = async () => {
+      if (confirm("本当にすべてのデータを削除しますか？")) {
+        await set(ref(db, "entries"), null);
+        await set(ref(db, "flips"), null);
+      }
+    };
   </script>
 </body>
 </html>
