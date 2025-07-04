@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>あいうえバトル（認証なし版・伸ばし棒対応）</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #kana-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 400px; margin-top: 16px; }
+    .card-btn {
+      width: 60px; height: 60px;
+      background: #fff;
+      border: 2px solid #888;
+      border-radius: 6px;
+      font-size: 24px;
+      cursor: pointer;
+      perspective: 400px;
+    }
+    .card-inner {
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .flipped .card-inner {
+      transform: rotateY(180deg);
+      background-color: #4caf50;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="setup">
+    <h2>プレイヤー設定</h2>
+    <form id="form-setup">
+      <input id="name" placeholder="プレイヤー名" required />
+      <input id="chars" placeholder="最大7文字（あ-ん、ー含む）" maxlength="7" pattern="[ぁ-んー]{1,7}" required />
+      <button type="submit">開始する</button>
+    </form>
+  </div>
+
+  <div id="game" style="display:none">
+    <h2>エントリー状況</h2>
+    <div id="entries"></div>
+
+    <h2>50音表 + 「ー」</h2>
+    <div id="kana-grid"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    const firebaseConfig = {
+    apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
+    authDomain: "aiue-4a249.firebaseapp.com",
+    projectId: "aiue-4a249",
+    storageBucket: "aiue-4a249.firebasestorage.app",
+    messagingSenderId: "490396478753",
+    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const setupForm = document.getElementById("form-setup");
+    setupForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const chars = document.getElementById("chars").value.trim().split("");
+      await set(ref(db, `entries/${name}`), chars);
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("game").style.display = "";
+    };
+
+    const kana = [
+      "あ","い","う","え","お",
+      "か","き","く","け","こ",
+      "さ","し","す","せ","そ",
+      "た","ち","つ","て","と",
+      "な","に","ぬ","ね","の",
+      "は","ひ","ふ","へ","ほ",
+      "ま","み","む","め","も",
+      "や","ゆ","よ",
+      "ら","り","る","れ","ろ",
+      "わ","を","ん",
+      "ー"
+    ];
+    const grid = document.getElementById("kana-grid");
+
+    kana.forEach(c => {
+      const btn = document.createElement("button");
+      btn.innerHTML = `<div class="card-inner">${c}</div>`;
+      btn.className = "card-btn";
+      btn.onclick = async () => {
+        const snap = await get(ref(db, "entries"));
+        const matched = [];
+        snap.forEach(s => {
+          const arr = s.val();
+          if (arr?.includes(c)) matched.push(s.key);
+        });
+        if (matched.length > 0) {
+          await set(ref(db, `flips/${c}`), true);
+        }
+      };
+      grid.appendChild(btn);
+    });
+
+    onValue(ref(db, "entries"), snap => {
+      const el = document.getElementById("entries");
+      el.innerHTML = "";
+      snap.forEach(s => {
+        const name = s.key;
+        const arr = s.val() || [];
+        el.innerHTML += `<div>${name}: ${arr.join("")}</div>`;
+      });
+    });
+
+    onValue(ref(db, "flips"), snap => {
+      snap.forEach(s => {
+        const c = s.key;
+        const flipped = s.val();
+        document.querySelectorAll(".card-btn").forEach(btn => {
+          const inner = btn.querySelector(".card-inner");
+          if (inner && inner.textContent === c) {
+            btn.classList.toggle("flipped", !!flipped);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
