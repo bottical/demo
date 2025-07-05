@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>あいうえバトル（レスポンシブ・エラー対応）</title>
+  <title>あいうえバトル（匿名・50音・リセット対応）</title>
   <style>
     body { font-family: sans-serif; margin: 0; padding: 20px; }
     h2 { font-size: 1.2em; margin-bottom: 0.5em; }
@@ -23,7 +23,12 @@
       font-size: 1.2em;
       cursor: pointer;
     }
-    .flipped { background: #4caf50; color: white; }
+    .flipped {
+      background: #4caf50; color: white;
+    }
+    .not-found {
+      background: #ccc; color: #666;
+    }
     #resetBtn {
       background: red; color: white;
       padding: 0.5em 1em; border: none; border-radius: 4px;
@@ -72,7 +77,8 @@
     projectId: "aiue-4a249",
     storageBucket: "aiue-4a249.firebasestorage.app",
     messagingSenderId: "490396478753",
-    appId: "1:490396478753:web:99e3537394e2c5b3b36260"    };
+    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -92,6 +98,8 @@
       }
       errorEl.textContent = "";
       await set(ref(db, `entries/${name}`), chars.split(""));
+      document.getElementById("word-input").style.display = "none";
+      document.getElementById("kana-select").style.display = "block";
     };
 
     const grid = document.getElementById("kana-grid");
@@ -101,11 +109,16 @@
       btn.className = "card-btn";
       btn.onclick = async () => {
         const snap = await get(ref(db, "entries"));
-        const matched = [];
+        let matched = false;
         snap.forEach(s => {
-          if ((s.val() || []).includes(c)) matched.push(s.key);
+          if ((s.val() || []).includes(c)) matched = true;
         });
-        if (matched.length > 0) await set(ref(db, `flips/${c}`), true);
+        if (matched) {
+          await set(ref(db, `flips/${c}`), true);
+        } else {
+          btn.classList.add("not-found");
+          setTimeout(() => btn.classList.remove("not-found"), 800);
+        }
       };
       grid.appendChild(btn);
     });
