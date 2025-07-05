@@ -8,7 +8,7 @@
     body { font-family: sans-serif; margin: 0; padding: 20px; }
     h2 { font-size: 1.2em; margin-bottom: 0.5em; }
     form, #entries, #kana-grid, #nav-buttons { margin-bottom: 1.5em; }
-    input, button { padding: 0.5em; font-size: 1em; }
+    input, button { padding: 0.5em; font-size: 0.9em; }
     #kana-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
@@ -27,7 +27,7 @@
       background: #4caf50; color: white;
     }
     .not-found {
-      background: #ccc; color: #666;
+      background: #ccc !important; color: #666 !important;
     }
     #resetBtn {
       background: red; color: white;
@@ -86,14 +86,15 @@
     const kana = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
 
     let flipsState = {};
+    let notFoundChars = new Set();
 
     document.getElementById("form-setup").onsubmit = async (e) => {
       e.preventDefault();
       const name = document.getElementById("name").value.trim();
       const chars = document.getElementById("chars").value.trim();
       const errorEl = document.getElementById("error");
-      if (!/^[ぁ-んー]{1,7}$/.test(chars)) {
-        errorEl.textContent = "※ 有効なひらがな（あ-ん、ー）のみ、最大7文字で入力してください。";
+      if (!/^[あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー]{1,7}$/.test(chars)) {
+        errorEl.textContent = "※ 有効な50音＋ーのみ、最大7文字で入力してください（濁点・半濁点・小文字は不可）。";
         return;
       }
       errorEl.textContent = "";
@@ -108,6 +109,7 @@
       btn.textContent = c;
       btn.className = "card-btn";
       btn.onclick = async () => {
+        if (btn.classList.contains("not-found")) return;
         const snap = await get(ref(db, "entries"));
         let matched = false;
         snap.forEach(s => {
@@ -117,7 +119,7 @@
           await set(ref(db, `flips/${c}`), true);
         } else {
           btn.classList.add("not-found");
-          setTimeout(() => btn.classList.remove("not-found"), 800);
+          notFoundChars.add(c);
         }
       };
       grid.appendChild(btn);
@@ -139,7 +141,9 @@
     onValue(ref(db, "flips"), snap => {
       flipsState = snap.val() || {};
       document.querySelectorAll(".card-btn").forEach(btn => {
-        btn.classList.toggle("flipped", !!flipsState[btn.textContent]);
+        const char = btn.textContent;
+        btn.classList.toggle("flipped", !!flipsState[char]);
+        if (notFoundChars.has(char)) btn.classList.add("not-found");
       });
       updateEntries();
     });
@@ -149,6 +153,10 @@
       if (confirm("すべてのデータを削除しますか？")) {
         await set(ref(db, "entries"), null);
         await set(ref(db, "flips"), null);
+        notFoundChars.clear();
+        document.querySelectorAll(".card-btn").forEach(btn => {
+          btn.classList.remove("not-found", "flipped");
+        });
       }
     };
 
