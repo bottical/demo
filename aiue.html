@@ -2,159 +2,150 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>あいうえバトル（匿名・50音・リセット対応）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>あいうえバトル（レスポンシブ・エラー対応）</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #kana-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 400px; margin-top: 16px; }
+    body { font-family: sans-serif; margin: 0; padding: 20px; }
+    h2 { font-size: 1.2em; margin-bottom: 0.5em; }
+    form, #entries, #kana-grid, #nav-buttons { margin-bottom: 1.5em; }
+    input, button { padding: 0.5em; font-size: 1em; }
+    #kana-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+      gap: 6px;
+      max-width: 100%;
+    }
     .card-btn {
-      width: 60px; height: 60px;
+      width: 100%; aspect-ratio: 1/1;
       background: #fff;
       border: 2px solid #888;
       border-radius: 6px;
-      font-size: 24px;
+      font-size: 1.2em;
       cursor: pointer;
-      perspective: 400px;
     }
-    .card-inner {
-      width: 100%; height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.6s;
-      transform-style: preserve-3d;
-    }
-    .flipped .card-inner {
-      transform: rotateY(180deg);
-      background-color: #4caf50;
-      color: white;
-    }
+    .flipped { background: #4caf50; color: white; }
     #resetBtn {
-      margin-top: 20px;
-      background: red;
-      color: white;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+      background: red; color: white;
+      padding: 0.5em 1em; border: none; border-radius: 4px;
+      font-size: 1em; cursor: pointer;
+    }
+    #error { color: red; margin-top: 0.5em; }
+    @media (max-width: 600px) {
+      input, button { width: 100%; margin-bottom: 0.5em; }
     }
   </style>
 </head>
 <body>
-  <div id="setup">
+  <div id="word-input">
     <h2>プレイヤー設定</h2>
     <form id="form-setup">
       <input id="name" placeholder="プレイヤー名" required />
-      <input id="chars" placeholder="最大7文字（あ-ん、ー含む）" maxlength="7" pattern="[ぁ-んー]{1,7}" required />
-      <button type="submit">開始する</button>
+      <input id="chars" placeholder="最大7文字（あ-ん、ー）" maxlength="7" required />
+      <button type="submit">登録</button>
+      <div id="error"></div>
     </form>
+    <div id="nav-buttons">
+      <button id="to-kana">→ ひらがな選択へ</button>
+    </div>
   </div>
 
-  <div id="game" style="display:none">
-    <h2>エントリー状況（伏せられた文字）</h2>
+  <div id="kana-select" style="display:none">
+    <h2>エントリー状況</h2>
     <div id="entries"></div>
 
     <h2>50音表 + 「ー」</h2>
     <div id="kana-grid"></div>
 
     <button id="resetBtn">全体リセット</button>
+    <div id="nav-buttons">
+      <button id="to-word">← ワード入力へ戻る</button>
+    </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-    // 🔧 あなたのFirebaseプロジェクト設定に書き換えてください
     const firebaseConfig = {
     apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
     authDomain: "aiue-4a249.firebaseapp.com",
     projectId: "aiue-4a249",
     storageBucket: "aiue-4a249.firebasestorage.app",
     messagingSenderId: "490396478753",
-    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
-    };
+    appId: "1:490396478753:web:99e3537394e2c5b3b36260"    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const setupForm = document.getElementById("form-setup");
-    const kana = [
-      "あ","い","う","え","お",
-      "か","き","く","け","こ",
-      "さ","し","す","せ","そ",
-      "た","ち","つ","て","と",
-      "な","に","ぬ","ね","の",
-      "は","ひ","ふ","へ","ほ",
-      "ま","み","む","め","も",
-      "や","ゆ","よ",
-      "ら","り","る","れ","ろ",
-      "わ","を","ん","ー"
-    ];
+    const kana = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
 
     let flipsState = {};
 
-    setupForm.onsubmit = async (e) => {
+    document.getElementById("form-setup").onsubmit = async (e) => {
       e.preventDefault();
       const name = document.getElementById("name").value.trim();
-      const chars = document.getElementById("chars").value.trim().split("");
-      await set(ref(db, `entries/${name}`), chars);
-      document.getElementById("setup").style.display = "none";
-      document.getElementById("game").style.display = "";
+      const chars = document.getElementById("chars").value.trim();
+      const errorEl = document.getElementById("error");
+      if (!/^[ぁ-んー]{1,7}$/.test(chars)) {
+        errorEl.textContent = "※ 有効なひらがな（あ-ん、ー）のみ、最大7文字で入力してください。";
+        return;
+      }
+      errorEl.textContent = "";
+      await set(ref(db, `entries/${name}`), chars.split(""));
     };
 
     const grid = document.getElementById("kana-grid");
     kana.forEach(c => {
       const btn = document.createElement("button");
-      btn.innerHTML = `<div class="card-inner">${c}</div>`;
+      btn.textContent = c;
       btn.className = "card-btn";
       btn.onclick = async () => {
         const snap = await get(ref(db, "entries"));
         const matched = [];
         snap.forEach(s => {
-          const arr = s.val();
-          if (arr?.includes(c)) matched.push(s.key);
+          if ((s.val() || []).includes(c)) matched.push(s.key);
         });
-        if (matched.length > 0) {
-          await set(ref(db, `flips/${c}`), true);
-        }
+        if (matched.length > 0) await set(ref(db, `flips/${c}`), true);
       };
       grid.appendChild(btn);
     });
 
-    onValue(ref(db, "flips"), snap => {
-      flipsState = snap.val() || {};
-      document.querySelectorAll(".card-btn").forEach(btn => {
-        const inner = btn.querySelector(".card-inner");
-        if (inner && flipsState[inner.textContent]) {
-          btn.classList.add("flipped");
-        } else {
-          btn.classList.remove("flipped");
-        }
-      });
-      // リフレッシュ entries 表示
-      updateMaskedEntries();
-    });
-
-    onValue(ref(db, "entries"), () => {
-      updateMaskedEntries();
-    });
-
-    async function updateMaskedEntries() {
-      const snap = await get(ref(db, "entries"));
-      const el = document.getElementById("entries");
-      el.innerHTML = "";
-      snap.forEach(s => {
-        const name = s.key;
-        const arr = s.val() || [];
-        const masked = arr.map(c => flipsState[c] ? c : "●").join("");
-        el.innerHTML += `<div>${name}: ${masked}</div>`;
+    function updateEntries() {
+      get(ref(db, "entries")).then(snap => {
+        const el = document.getElementById("entries");
+        el.innerHTML = "";
+        snap.forEach(s => {
+          const name = s.key;
+          const arr = s.val() || [];
+          const masked = arr.map(c => flipsState[c] ? c : "●").join("");
+          el.innerHTML += `<div>${name}: ${masked}</div>`;
+        });
       });
     }
 
+    onValue(ref(db, "flips"), snap => {
+      flipsState = snap.val() || {};
+      document.querySelectorAll(".card-btn").forEach(btn => {
+        btn.classList.toggle("flipped", !!flipsState[btn.textContent]);
+      });
+      updateEntries();
+    });
+    onValue(ref(db, "entries"), updateEntries);
+
     document.getElementById("resetBtn").onclick = async () => {
-      if (confirm("本当にすべてのデータを削除しますか？")) {
+      if (confirm("すべてのデータを削除しますか？")) {
         await set(ref(db, "entries"), null);
         await set(ref(db, "flips"), null);
       }
+    };
+
+    document.getElementById("to-kana").onclick = () => {
+      document.getElementById("word-input").style.display = "none";
+      document.getElementById("kana-select").style.display = "block";
+    };
+    document.getElementById("to-word").onclick = () => {
+      document.getElementById("kana-select").style.display = "none";
+      document.getElementById("word-input").style.display = "block";
     };
   </script>
 </body>
