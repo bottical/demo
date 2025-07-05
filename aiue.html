@@ -92,8 +92,8 @@
   </div>
 
 <script type="module">
-  // ひらがな一覧
   const kanaList = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
+  const lineBreakAfter = ["お", "こ", "そ", "と", "の", "ほ", "も", "よ", "ろ", "ん"]; // 改行を入れる文字
   const validCharRegex = /^[ぁ-んー]{1,7}$/;
 
   const kanaGrid = document.getElementById("kana-grid");
@@ -109,19 +109,18 @@
   let revealedKana = new Set();
 
   // ひらがなカード生成
-  kanaList.forEach((kana, index) => {
+  kanaList.forEach((kana) => {
     const btn = document.createElement("button");
     btn.className = "card-btn";
     btn.textContent = kana;
     btn.addEventListener("click", () => onKanaClick(kana, btn));
     kanaGrid.appendChild(btn);
 
-    // 「よ」の後に改行用の空要素を挿入
-    if (kana === "よ") {
-      const lineBreak = document.createElement("div");
-      lineBreak.style.flexBasis = "100%";
-      lineBreak.style.height = "0";
-      kanaGrid.appendChild(lineBreak);
+    if (lineBreakAfter.includes(kana)) {
+      const br = document.createElement("div");
+      br.style.flexBasis = "100%";
+      br.style.height = "0";
+      kanaGrid.appendChild(br);
     }
   });
 
@@ -135,8 +134,9 @@
       errorDiv.textContent = "名前を入力してください";
       return;
     }
+
     if (!validCharRegex.test(chars)) {
-      errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみです（最大7文字）";
+      errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（最大7文字）です";
       return;
     }
 
@@ -149,7 +149,7 @@
     switchToKana();
   });
 
-  // 表示切替
+  // 画面遷移
   document.getElementById("to-kana").addEventListener("click", switchToKana);
   document.getElementById("to-word").addEventListener("click", () => {
     wordInputDiv.style.display = "block";
@@ -161,7 +161,7 @@
     kanaSelectDiv.style.display = "block";
   }
 
-  // カードクリック時
+  // カードを押したときの処理
   function onKanaClick(kana, btn) {
     if (revealedKana.has(kana)) return;
 
