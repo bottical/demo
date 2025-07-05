@@ -21,7 +21,7 @@
     #kana-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 4px 8px;
       max-width: 100%;
     }
     .card-btn {
@@ -93,7 +93,7 @@
 
 <script type="module">
   const kanaList = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
-  const lineBreakAfter = ["お", "こ", "そ", "と", "の", "ほ", "も", "よ", "ろ", "ん"]; // 改行を入れる文字
+  const lineBreakAfter = ["お", "こ", "そ", "と", "の", "ほ", "も", "よ", "ろ"]; // 改行を入れる文字
   const validCharRegex = /^[ぁ-んー]{1,7}$/;
 
   const kanaGrid = document.getElementById("kana-grid");
