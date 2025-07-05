@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>あいうえバトル（匿名・50音・リセット対応）</title>
-    <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-
+  <title>あいうえバトル（Firebase RTDB対応）</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
     body { font-family: sans-serif; margin: 0; padding: 20px; }
     h2 { font-size: 1.2em; margin-bottom: 0.5em; }
     form, #entries, #kana-grid, #nav-buttons { margin-bottom: 1.5em; }
@@ -35,29 +32,16 @@
       align-items: center;
       justify-content: center;
     }
-    .flipped {
-      background: #4caf50; color: white;
-    }
-    .not-found {
-      background: #ccc !important; color: #666 !important;
-    }
+    .flipped { background: #4caf50; color: white; }
+    .not-found { background: #ccc !important; color: #666 !important; }
     #resetBtn {
       background: red; color: white;
       padding: 0.5em 1em; border: none; border-radius: 4px;
       font-size: 1em; cursor: pointer;
     }
     #error { color: red; margin-top: 0.5em; }
-
-    #word-input {
-      max-width: 400px;
-      margin: 0 auto;
-      padding: 0 10px;
-    }
-
-    #form-setup {
-      width: 100%;
-    }
-
+    #word-input { max-width: 400px; margin: 0 auto; padding: 0 10px; }
+    #form-setup { width: 100%; }
     @media (max-width: 600px) {
       body { padding: 10px; }
       input, button { width: 100%; margin-bottom: 0.5em; }
@@ -91,116 +75,136 @@
     </div>
   </div>
 
-<script type="module">
-  const kanaList = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
-  const lineBreakAfter = ["お", "こ", "そ", "と", "の", "ほ", "も", "よ", "ろ"]; // 改行を入れる文字
-  const validCharRegex = /^[ぁ-んー]{1,7}$/;
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-  const kanaGrid = document.getElementById("kana-grid");
-  const entriesDiv = document.getElementById("entries");
-  const wordInputDiv = document.getElementById("word-input");
-  const kanaSelectDiv = document.getElementById("kana-select");
-  const form = document.getElementById("form-setup");
-  const nameInput = document.getElementById("name");
-  const charsInput = document.getElementById("chars");
-  const errorDiv = document.getElementById("error");
+    const firebaseConfig = {
+    apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
+    authDomain: "aiue-4a249.firebaseapp.com",
+    projectId: "aiue-4a249",
+    storageBucket: "aiue-4a249.firebasestorage.app",
+    messagingSenderId: "490396478753",
+    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
+    };
 
-  let players = {};
-  let revealedKana = new Set();
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  // ひらがなカード生成
-  kanaList.forEach((kana) => {
-    const btn = document.createElement("button");
-    btn.className = "card-btn";
-    btn.textContent = kana;
-    btn.addEventListener("click", () => onKanaClick(kana, btn));
-    kanaGrid.appendChild(btn);
+    const kanaList = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんー"];
+    const lineBreakAfter = ["お", "こ", "そ", "と", "の", "ほ", "も", "よ", "ろ", "ん"];
+    const validCharRegex = /^[ぁ-んー]{1,7}$/;
 
-    if (lineBreakAfter.includes(kana)) {
-      const br = document.createElement("div");
-      br.style.flexBasis = "100%";
-      br.style.height = "0";
-      kanaGrid.appendChild(br);
-    }
-  });
+    const kanaGrid = document.getElementById("kana-grid");
+    const entriesDiv = document.getElementById("entries");
+    const wordInputDiv = document.getElementById("word-input");
+    const kanaSelectDiv = document.getElementById("kana-select");
+    const form = document.getElementById("form-setup");
+    const nameInput = document.getElementById("name");
+    const charsInput = document.getElementById("chars");
+    const errorDiv = document.getElementById("error");
 
-  // ワード登録処理
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const name = nameInput.value.trim();
-    const chars = charsInput.value.trim();
+    // ボタン生成
+    kanaList.forEach((kana) => {
+      const btn = document.createElement("button");
+      btn.className = "card-btn";
+      btn.textContent = kana;
+      btn.addEventListener("click", () => {
+        set(ref(db, 'revealed/' + kana), true);
+      });
+      kanaGrid.appendChild(btn);
 
-    if (!name) {
-      errorDiv.textContent = "名前を入力してください";
-      return;
-    }
-
-    if (!validCharRegex.test(chars)) {
-      errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（最大7文字）です";
-      return;
-    }
-
-    players[name] = chars;
-    nameInput.value = "";
-    charsInput.value = "";
-    errorDiv.textContent = "";
-
-    renderEntries();
-    switchToKana();
-  });
-
-  // 画面遷移
-  document.getElementById("to-kana").addEventListener("click", switchToKana);
-  document.getElementById("to-word").addEventListener("click", () => {
-    wordInputDiv.style.display = "block";
-    kanaSelectDiv.style.display = "none";
-  });
-
-  function switchToKana() {
-    wordInputDiv.style.display = "none";
-    kanaSelectDiv.style.display = "block";
-  }
-
-  // カードを押したときの処理
-  function onKanaClick(kana, btn) {
-    if (revealedKana.has(kana)) return;
-
-    btn.classList.add("flipped");
-    revealedKana.add(kana);
-
-    let found = false;
-    for (const player in players) {
-      if (players[player].includes(kana)) {
-        found = true;
+      if (lineBreakAfter.includes(kana)) {
+        const br = document.createElement("div");
+        br.style.flexBasis = "100%";
+        br.style.height = "0";
+        kanaGrid.appendChild(br);
       }
-    }
-
-    if (!found) {
-      btn.classList.add("not-found");
-    }
-
-    renderEntries();
-  }
-
-  // エントリー描画
-  function renderEntries() {
-    entriesDiv.innerHTML = "";
-    for (const player in players) {
-      const div = document.createElement("div");
-      div.innerHTML = `<strong>${player}</strong>: ` +
-        [...players[player]].map(ch => revealedKana.has(ch) ? ch : "●").join("");
-      entriesDiv.appendChild(div);
-    }
-  }
-
-  // 全体リセット
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    revealedKana.clear();
-    document.querySelectorAll(".card-btn").forEach(btn => {
-      btn.classList.remove("flipped", "not-found");
     });
-    renderEntries();
-  });
-</script>
+
+    // ワード登録
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const chars = charsInput.value.trim();
+
+      if (!name) {
+        errorDiv.textContent = "名前を入力してください";
+        return;
+      }
+      if (!validCharRegex.test(chars)) {
+        errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（最大7文字）です";
+        return;
+      }
+
+      set(ref(db, 'players/' + name), chars);
+      nameInput.value = "";
+      charsInput.value = "";
+      errorDiv.textContent = "";
+      switchToKana();
+    });
+
+    // 表示切替
+    document.getElementById("to-kana").addEventListener("click", switchToKana);
+    document.getElementById("to-word").addEventListener("click", () => {
+      wordInputDiv.style.display = "block";
+      kanaSelectDiv.style.display = "none";
+    });
+
+    function switchToKana() {
+      wordInputDiv.style.display = "none";
+      kanaSelectDiv.style.display = "block";
+    }
+
+    // RTDB監視
+    onValue(ref(db, 'players'), (snapshot) => {
+      const players = snapshot.val() || {};
+      renderEntries(players);
+    });
+
+    onValue(ref(db, 'revealed'), (snapshot) => {
+      const revealed = snapshot.val() || {};
+      document.querySelectorAll(".card-btn").forEach(btn => {
+        const kana = btn.textContent;
+        btn.classList.remove("flipped", "not-found");
+        if (revealed[kana]) {
+          btn.classList.add("flipped");
+        }
+      });
+
+      // not-found色付け
+      onValue(ref(db, 'players'), (snap) => {
+        const players = snap.val() || {};
+        document.querySelectorAll(".card-btn").forEach(btn => {
+          const kana = btn.textContent;
+          const isUsed = Object.values(players).some(word => word.includes(kana));
+          if (revealed[kana] && !isUsed) {
+            btn.classList.add("not-found");
+          }
+        });
+      });
+    });
+
+    // リセット
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      remove(ref(db, "revealed"));
+    });
+
+    // エントリー描画
+    function renderEntries(players) {
+      onValue(ref(db, 'revealed'), (snapshot) => {
+        const revealed = snapshot.val() || {};
+        const revealedKana = new Set(Object.keys(revealed));
+        entriesDiv.innerHTML = "";
+        for (const player in players) {
+          const div = document.createElement("div");
+          div.innerHTML = `<strong>${player}</strong>: ` +
+            [...players[player]].map(ch => revealedKana.has(ch) ? ch : "●").join("");
+          entriesDiv.appendChild(div);
+        }
+      });
+    }
+  </script>
 </body>
 </html>
