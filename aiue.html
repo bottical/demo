@@ -189,6 +189,7 @@
     // リセット
     document.getElementById("resetBtn").addEventListener("click", () => {
       remove(ref(db, "revealed"));
+      remove(ref(db, "players"));
     });
 
     // エントリー描画
