@@ -124,26 +124,32 @@
     });
 
     // ワード登録
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const name = nameInput.value.trim();
-      const chars = charsInput.value.trim();
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = nameInput.value.trim();
+  const chars = charsInput.value.trim();
 
-      if (!name) {
-        errorDiv.textContent = "名前を入力してください";
-        return;
-      }
-      if (!validCharRegex.test(chars)) {
-        errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（最大7文字）です";
-        return;
-      }
+  if (!name) {
+    errorDiv.textContent = "名前を入力してください";
+    return;
+  }
 
-      set(ref(db, 'players/' + name), chars);
-      nameInput.value = "";
-      charsInput.value = "";
-      errorDiv.textContent = "";
-      switchToKana();
-    });
+  // 正規表現 + 有効文字リストによる厳密なチェック
+  const isValidLength = /^[ぁ-んー]{1,7}$/.test(chars);  // 長さとひらがな基本チェック
+  const isAllInKanaList = [...chars].every(ch => kanaList.includes(ch)); // 完全一致チェック
+
+  if (!isValidLength || !isAllInKanaList) {
+    errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（小さい文字・カタカナ・濁点不可）";
+    return;
+  }
+
+  set(ref(db, 'players/' + name), chars);
+  nameInput.value = "";
+  charsInput.value = "";
+  errorDiv.textContent = "";
+  switchToKana();
+});
+
 
     // 表示切替
     document.getElementById("to-kana").addEventListener("click", switchToKana);
