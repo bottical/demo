@@ -218,6 +218,8 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   if (confirmed) {
     remove(ref(db, "revealed"));
     remove(ref(db, "players"));
+    document.querySelectorAll(".card-btn").forEach(btn => {
+    btn.classList.remove("flipped", "not-found");
   }
 });
 
