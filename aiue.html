@@ -78,15 +78,15 @@
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
     const firebaseConfig = {
-    apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
-    authDomain: "aiue-4a249.firebaseapp.com",
-    projectId: "aiue-4a249",
-    storageBucket: "aiue-4a249.firebasestorage.app",
-    messagingSenderId: "490396478753",
-    appId: "1:490396478753:web:99e3537394e2c5b3b36260"
+      apiKey: "AIzaSyA9336L3i6TzZAEiox0Up8zJEL6yAbxNwo",
+      authDomain: "aiue-4a249.firebaseapp.com",
+      projectId: "aiue-4a249",
+      storageBucket: "aiue-4a249.firebasestorage.app",
+      messagingSenderId: "490396478753",
+      appId: "1:490396478753:web:99e3537394e2c5b3b36260"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -123,33 +123,53 @@
       }
     });
 
-    // ワード登録
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = nameInput.value.trim();
-  const chars = charsInput.value.trim();
+    // 不正文字のチェック関数
+    const isAllValidKana = (input) => {
+      const invalidChars = [...input].filter(ch => !kanaList.includes(ch));
+      return {
+        isValid: invalidChars.length === 0,
+        invalidChars
+      };
+    };
 
-  if (!name) {
-    errorDiv.textContent = "名前を入力してください";
-    return;
-  }
+    // 入力リアルタイム検証
+    charsInput.addEventListener("input", () => {
+      const input = charsInput.value.trim();
+      const { isValid, invalidChars } = isAllValidKana(input);
 
-  // 正規表現 + 有効文字リストによる厳密なチェック
-  const isValidLength = /^[ぁ-んー]{1,7}$/.test(chars);  // 長さとひらがな基本チェック
-  const isAllInKanaList = [...chars].every(ch => kanaList.includes(ch)); // 完全一致チェック
+      if (input && !isValid) {
+        const messages = invalidChars.map(ch => `「${ch}」は使用できません`);
+        errorDiv.innerHTML = messages.join("<br>");
+      } else {
+        errorDiv.textContent = "";
+      }
+    });
 
-  if (!isValidLength || !isAllInKanaList) {
-    errorDiv.textContent = "使用できるのは「あ〜ん」と「ー」のみ（小さい文字・カタカナ・濁点不可）";
-    return;
-  }
+    // フォーム送信処理
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const chars = charsInput.value.trim();
+      const { isValid, invalidChars } = isAllValidKana(chars);
 
-  set(ref(db, 'players/' + name), chars);
-  nameInput.value = "";
-  charsInput.value = "";
-  errorDiv.textContent = "";
-  switchToKana();
-});
+      if (!name) {
+        errorDiv.textContent = "名前を入力してください";
+        return;
+      }
 
+      if (!validCharRegex.test(chars) || !isValid) {
+        const baseMsg = "使用できるのは「あ〜ん」と「ー」のみ（小さい文字・カタカナ・濁点などは不可）";
+        const detail = invalidChars.length > 0 ? "<br>" + invalidChars.map(ch => `「${ch}」は使用できません`).join("<br>") : "";
+        errorDiv.innerHTML = baseMsg + detail;
+        return;
+      }
+
+      set(ref(db, 'players/' + name), chars);
+      nameInput.value = "";
+      charsInput.value = "";
+      errorDiv.textContent = "";
+      switchToKana();
+    });
 
     // 表示切替
     document.getElementById("to-kana").addEventListener("click", switchToKana);
@@ -179,7 +199,6 @@ form.addEventListener("submit", (e) => {
         }
       });
 
-      // not-found色付け
       onValue(ref(db, 'players'), (snap) => {
         const players = snap.val() || {};
         document.querySelectorAll(".card-btn").forEach(btn => {
@@ -193,10 +212,14 @@ form.addEventListener("submit", (e) => {
     });
 
     // リセット
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      remove(ref(db, "revealed"));
-      remove(ref(db, "players"));
-    });
+document.getElementById("resetBtn").addEventListener("click", () => {
+  const confirmed = confirm("すべてのプレイヤー情報と公開文字を削除します。\n本当にリセットしてもよろしいですか？");
+
+  if (confirmed) {
+    remove(ref(db, "revealed"));
+    remove(ref(db, "players"));
+  }
+});
 
     // エントリー描画
     function renderEntries(players) {
