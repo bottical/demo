@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>バウンスオフ　6ランダム</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --grid-cols:12; --grid-rows:20;
+    }
+    *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+    html,body{height:100%;}
+    body{
+      margin:0; background:var(--bg); color:var(--ink);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif;
+      padding:16px;
+    }
+    .wrap{
+      width:min(94vw, 94vh); /* 正方形に近づける：スマホで見やすい */
+      max-width:700px;
+      aspect-ratio: 3/4; /* 盤面の縦長比率 */
+      background:var(--card);
+      border:1px solid #1f2937;
+      border-radius:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      padding:10px;
+      display:grid;
+      grid-template-columns: repeat(var(--grid-cols), 1fr);
+      grid-template-rows: repeat(var(--grid-rows), 1fr);
+      gap: 6px;
+      user-select:none;
+      touch-action: manipulation; /* タップの遅延抑制 */
+      position: relative;
+    }
+    .dot{
+      width:100%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      /* 影で立体感 */
+      box-shadow: inset 0 2px 6px rgba(255,255,255,.12), 0 4px 10px rgba(0,0,0,.35);
+      transition: transform .12s ease;
+    }
+    .dot:active{ transform: scale(.96); }
+
+    .ui{
+      display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;
+      color:var(--muted); font-size:.95rem;
+    }
+    button{
+      appearance:none; border:none; cursor:pointer;
+      background:linear-gradient(180deg, #2563eb, #1d4ed8);
+      color:white; padding:10px 16px; border-radius:12px; font-weight:600;
+      box-shadow: 0 6px 16px rgba(37,99,235,.35);
+    }
+    button:active{ transform: translateY(1px); }
+    .hint{ font-size:.85rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="board" title="タップで再生成できます"></div>
+  <div class="ui">
+    <button id="reroll">ランダム生成</button>
+    <div class="hint">👆 画面タップでも再生成</div>
+  </div>
+
+  <script>
+    // 設定
+    const COLS = 12;   // グリッド列
+    const ROWS = 20;   // グリッド行
+    const COUNT = 6;   // 丸の数（＝6ミノ）
+    const COLORS = [
+      ["#34d399","#065f46"], // teal/green
+      ["#60a5fa","#1e3a8a"], // blue
+      ["#f472b6","#831843"], // pink
+      ["#f59e0b","#78350f"], // amber
+      ["#a78bfa","#4c1d95"], // violet
+      ["#f87171","#7f1d1d"], // red
+    ];
+
+    const board = document.getElementById('board');
+    const btn = document.getElementById('reroll');
+
+    // ユーティリティ
+    function rnd(n){ return Math.floor(Math.random()*n); }
+    function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=rnd(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+    // 連結6マス（上下左右）をランダムに生成
+    function randomConnectedPositions(count=COUNT){
+      // 有効範囲内でやや中央寄りに開始
+      let x = 2 + rnd(COLS-4);
+      let y = 2 + rnd(ROWS-4);
+      const cells = new Set([`${x},${y}`]);
+
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+      let guard = 0;
+      while(cells.size < count && guard < 5000){
+        guard++;
+        // 既存セルからランダムに1つ選ぶ
+        const list = Array.from(cells).map(s => s.split(',').map(Number));
+        const [cx, cy] = list[rnd(list.length)];
+        // ランダム方向
+        const [dx, dy] = dirs[rnd(dirs.length)];
+        let nx = cx + dx;
+        let ny = cy + dy;
+        // 盤面外は再試行
+        if(nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+        const key = `${nx},${ny}`;
+        if(!cells.has(key)){
+          cells.add(key);
+        }
+      }
+      // 保険：万一足りなければ再帰
+      if(cells.size < count) return randomConnectedPositions(count);
+      return Array.from(cells).map(s => s.split(',').map(Number));
+    }
+
+    // 描画
+    function render(){
+      board.innerHTML = "";
+      // カラーテーマを選択
+      const [fill, dark] = COLORS[rnd(COLORS.length)];
+      const accents = shuffle([
+        "#ffffff", // 白ハイライト
+        fill,      // メイン
+        dark       // 濃い影
+      ]);
+
+      const positions = randomConnectedPositions(COUNT);
+
+      // 各丸を配置
+      positions.forEach(([x,y], idx) => {
+        const d = document.createElement('div');
+        d.className = "dot";
+        d.style.gridColumn = (x+1);
+        d.style.gridRow = (y+1);
+        // グラデと縁
+        d.style.background = `radial-gradient(circle at 35% 30%, ${accents[0]}, ${fill} 35%, ${dark} 100%)`;
+        d.style.border = "1px solid rgba(0,0,0,.35)";
+        board.appendChild(d);
+      });
+    }
+
+    // 初期化＆イベント
+    function init(){
+      // CSSカスタムプロパティに行列を反映（万一変更したい場合に備えて）
+      document.documentElement.style.setProperty('--grid-cols', COLS);
+      document.documentElement.style.setProperty('--grid-rows', ROWS);
+      render();
+    }
+
+    btn.addEventListener('click', render);
+    // ボードタップでも再生成
+    board.addEventListener('click', render, {passive:true});
+    board.addEventListener('touchend', (e)=>{ e.preventDefault(); render(); }, {passive:false});
+
+    // 画面回転等でリフローしてもOK（サイズはCSS依存）
+    window.addEventListener('resize', ()=>{/* no-op */});
+
+    init();
+  </script>
+</body>
+</html>
