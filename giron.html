@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>議論マップ・プロトタイプ</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin:0; background:#f5f5f5; }
+    header { background:#222; color:white; padding:10px 16px; }
+    h1 { margin:0; font-size:18px; }
+    #viz { width:100vw; height:80vh; background:white; }
+    #info { padding:12px; background:#fafafa; border-top:1px solid #ccc; font-size:14px; }
+    circle { stroke-width:2px; cursor:pointer; }
+    .tooltip {
+      position: absolute; background: rgba(0,0,0,0.75); color: white;
+      padding: 4px 8px; border-radius: 4px; font-size: 12px;
+      pointer-events: none; visibility: hidden;
+    }
+    button { margin:4px; padding:4px 8px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>議論構造マップ（プロトタイプ）</h1>
+  <button onclick="filterAll()">全体表示</button>
+  <button onclick="filterFallacies()">誤謬のみ</button>
+</header>
+<div id="viz"></div>
+<div id="info">ノードをクリックすると詳細が表示されます。</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const debateData = [
+  { id: "1", text: "AIは人間の仕事を奪う", type: "claim", stance: "con", validity: 40, fallacy: null },
+  { id: "2", text: "AIは新しい職業を生み出す", type: "rebuttal", stance: "pro", validity: 80, fallacy: null },
+  { id: "3", text: "AIのせいで失業者が増えたというデータがある", type: "evidence", stance: "con", validity: 60, fallacy: "hasty generalization" },
+  { id: "4", text: "専門家もそう言っている", type: "support", stance: "con", validity: 30, fallacy: "appeal to authority" },
+  { id: "5", text: "それは一部の事例に過ぎない", type: "rebuttal", stance: "pro", validity: 70, fallacy: null },
+  { id: "6", text: "AI開発を止めるべきだ", type: "conclusion", stance: "con", validity: 20, fallacy: "slippery slope" }
+];
+
+const debateLinks = [
+  { source: "1", target: "2", relation: "rebut" },
+  { source: "1", target: "3", relation: "support" },
+  { source: "3", target: "4", relation: "support" },
+  { source: "3", target: "5", relation: "rebut" },
+  { source: "1", target: "6", relation: "derive" }
+];
+
+let currentFilter = "all";
+
+const svg = d3.select("#viz").append("svg")
+  .attr("width", "100%")
+  .attr("height", "100%");
+
+const tooltip = d3.select("#tooltip");
+
+const simulation = d3.forceSimulation(debateData)
+  .force("link", d3.forceLink(debateLinks).id(d => d.id).distance(150))
+  .force("charge", d3.forceManyBody().strength(-250))
+  .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2.5));
+
+const link = svg.selectAll("line")
+  .data(debateLinks)
+  .enter()
+  .append("line")
+  .attr("stroke", "#aaa")
+  .attr("stroke-width", 2);
+
+const colorByStance = stance => ({
+  pro: "#4caf50", con: "#f44336", neutral: "#9e9e9e"
+}[stance] || "#bbb");
+
+const node = svg.selectAll("circle")
+  .data(debateData)
+  .enter()
+  .append("circle")
+  .attr("r", d => 15 + (d.validity / 10))
+  .attr("fill", d => colorByStance(d.stance))
+  .attr("stroke", d => d.fallacy ? "#ff0000" : "#fff")
+  .attr("stroke-width", d => d.fallacy ? 3 : 1)
+  .on("click", showInfo)
+  .on("mousemove", e => tooltip.style("top", (e.pageY+5)+"px").style("left", (e.pageX+10)+"px"))
+  .on("mouseover", (e,d) => {
+    tooltip.style("visibility","visible").text(d.fallacy ? "誤謬: " + d.fallacy : d.text);
+  })
+  .on("mouseout", () => tooltip.style("visibility","hidden"));
+
+const label = svg.selectAll("text")
+  .data(debateData)
+  .enter()
+  .append("text")
+  .attr("text-anchor", "middle")
+  .attr("dy", ".35em")
+  .attr("font-size", "10px")
+  .text(d => d.text.length > 15 ? d.text.slice(0,15)+"…" : d.text);
+
+simulation.on("tick", () => {
+  link.attr("x1", d => d.source.x)
+      .attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x)
+      .attr("y2", d => d.target.y);
+  node.attr("cx", d => d.x)
+      .attr("cy", d => d.y);
+  label.attr("x", d => d.x)
+       .attr("y", d => d.y);
+});
+
+function showInfo(event, d){
+  const info = `
+    <b>${d.text}</b><br>
+    立場: ${d.stance}<br>
+    妥当性: ${d.validity}<br>
+    誤謬: ${d.fallacy || "なし"}
+  `;
+  document.getElementById("info").innerHTML = info;
+}
+
+function filterFallacies(){
+  currentFilter = "fallacy";
+  node.attr("opacity", d => d.fallacy ? 1 : 0.1);
+  label.attr("opacity", d => d.fallacy ? 1 : 0.1);
+  link.attr("opacity", 0.1);
+}
+
+function filterAll(){
+  currentFilter = "all";
+  node.attr("opacity", 1);
+  label.attr("opacity", 1);
+  link.attr("opacity", 1);
+}
+</script>
+</body>
+</html>
