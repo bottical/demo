@@ -1,134 +1,289 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>議論マップ・プロトタイプ</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>レスバ判定・対立構造 1v1 可視化プロトタイプ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; margin:0; background:#f5f5f5; }
-    header { background:#222; color:white; padding:10px 16px; }
-    h1 { margin:0; font-size:18px; }
-    #viz { width:100vw; height:80vh; background:white; }
-    #info { padding:12px; background:#fafafa; border-top:1px solid #ccc; font-size:14px; }
-    circle { stroke-width:2px; cursor:pointer; }
-    .tooltip {
-      position: absolute; background: rgba(0,0,0,0.75); color: white;
-      padding: 4px 8px; border-radius: 4px; font-size: 12px;
-      pointer-events: none; visibility: hidden;
+    :root{
+      --bg:#0b0d10; --panel:#12151a; --muted:#8b97a6; --text:#e8edf3; --accent:#7cc1ff; --bad:#ff6b6b; --good:#2ecc71;
     }
-    button { margin:4px; padding:4px 8px; }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; background:var(--bg); color:var(--text)}
+    header{position:sticky; top:0; z-index:10; display:flex; gap:12px; align-items:center; padding:14px 18px; background:rgba(11,13,16,.85); backdrop-filter: blur(8px); border-bottom:1px solid #1c2129}
+    header h1{font-size:16px; margin:0; letter-spacing:.2px}
+    header .hint{color:var(--muted); font-size:12px}
+    main{padding:18px; display:grid; grid-template-columns:1.1fr 1.1fr .9fr; gap:14px}
+    .card{background:var(--panel); border:1px solid #1c2129; border-radius:14px; padding:14px; box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    label{font-size:12px; color:var(--muted)}
+    textarea{width:100%; min-height:220px; resize:vertical; background:#0e1116; color:var(--text); border:1px solid #1e2630; border-radius:12px; padding:10px 12px; line-height:1.5}
+    input[type="text"]{width:100%; background:#0e1116; color:var(--text); border:1px solid #1e2630; border-radius:10px; padding:10px 12px}
+    button{appearance:none; border:none; background:#1a2230; color:#cfe6ff; border:1px solid #2a3443; padding:10px 14px; border-radius:12px; font-weight:600; cursor:pointer}
+    button.primary{background:#123b5f; border-color:#16466f}
+    button.warn{background:#3d1b1b; border-color:#5a2a2a}
+    .kpi{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px}
+    .kpi > div{background:#0e1116; border:1px solid #1e2630; border-radius:12px; padding:10px}
+    .kpi .v{font-size:22px; font-weight:700}
+    .badge{display:inline-flex; gap:6px; align-items:center; border:1px solid #2a3443; padding:4px 8px; border-radius:999px; font-size:12px; color:#dfe9f7}
+    .fallacy{display:flex; flex-wrap:wrap; gap:6px}
+    .fallacy .badge{background:#1b2230}
+    .cols{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .footer{padding:10px 18px; color:var(--muted); font-size:12px}
+    .muted{color:var(--muted)}
+    .tiny{font-size:11px}
+    .winner{font-weight:700}
+    .pill{padding:2px 8px; border-radius:999px; font-size:12px; background:#0e1116; border:1px solid #1e2630}
+    .pill.good{border-color:#1f6c45; color:#8ef0b8}
+    .pill.bad{border-color:#703232; color:#ffb1b1}
   </style>
 </head>
 <body>
-<header>
-  <h1>議論構造マップ（プロトタイプ）</h1>
-  <button onclick="filterAll()">全体表示</button>
-  <button onclick="filterFallacies()">誤謬のみ</button>
-</header>
-<div id="viz"></div>
-<div id="info">ノードをクリックすると詳細が表示されます。</div>
-<div class="tooltip" id="tooltip"></div>
+  <header>
+    <h1>レスバ判定プロトタイプ（1対1・妥当性/一貫性/詭弁スコア）</h1>
+    <span class="hint">GitHub Pagesにそのまま置けます。AI判定はバックエンド連携を想定。</span>
+  </header>
 
-<script>
-const debateData = [
-  { id: "1", text: "AIは人間の仕事を奪う", type: "claim", stance: "con", validity: 40, fallacy: null },
-  { id: "2", text: "AIは新しい職業を生み出す", type: "rebuttal", stance: "pro", validity: 80, fallacy: null },
-  { id: "3", text: "AIのせいで失業者が増えたというデータがある", type: "evidence", stance: "con", validity: 60, fallacy: "hasty generalization" },
-  { id: "4", text: "専門家もそう言っている", type: "support", stance: "con", validity: 30, fallacy: "appeal to authority" },
-  { id: "5", text: "それは一部の事例に過ぎない", type: "rebuttal", stance: "pro", validity: 70, fallacy: null },
-  { id: "6", text: "AI開発を止めるべきだ", type: "conclusion", stance: "con", validity: 20, fallacy: "slippery slope" }
-];
+  <main>
+    <!-- 左：入力A -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="pill">側A</div>
+          <div class="tiny muted">ユーザーが投稿A（主張）を貼り付け</div>
+        </div>
+        <button id="clearA" class="warn tiny">クリア</button>
+      </div>
+      <textarea id="textA" placeholder="例：AIは雇用を破壊する。実際に2010-2020で◯◯業の雇用はx%減少した（総務省データ）。"></textarea>
+      <div class="kpi">
+        <div><div class="tiny muted">妥当性</div><div id="vA" class="v">-</div></div>
+        <div><div class="tiny muted">一貫性</div><div id="cA" class="v">-</div></div>
+        <div><div class="tiny muted">詭弁ペナルティ</div><div id="fA" class="v">-</div></div>
+      </div>
+      <div class="fallacy" id="tagsA" style="margin-top:8px"></div>
+    </section>
 
-const debateLinks = [
-  { source: "1", target: "2", relation: "rebut" },
-  { source: "1", target: "3", relation: "support" },
-  { source: "3", target: "4", relation: "support" },
-  { source: "3", target: "5", relation: "rebut" },
-  { source: "1", target: "6", relation: "derive" }
-];
+    <!-- 右：入力B -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="pill">側B</div>
+          <div class="tiny muted">ユーザーが投稿B（反論）を貼り付け</div>
+        </div>
+        <button id="clearB" class="warn tiny">クリア</button>
+      </div>
+      <textarea id="textB" placeholder="例：技術代替は部分的。むしろAI普及で補完職が増えた（OECD 2023）。規制より再訓練と雇用移行が要。"></textarea>
+      <div class="kpi">
+        <div><div class="tiny muted">妥当性</div><div id="vB" class="v">-</div></div>
+        <div><div class="tiny muted">一貫性</div><div id="cB" class="v">-</div></div>
+        <div><div class="tiny muted">詭弁ペナルティ</div><div id="fB" class="v">-</div></div>
+      </div>
+      <div class="fallacy" id="tagsB" style="margin-top:8px"></div>
+    </section>
 
-let currentFilter = "all";
+    <!-- 中央：操作/結果 -->
+    <section class="card">
+      <div class="row">
+        <label>Twitter(X) URL（任意）：</label>
+        <input id="tweetUrl" type="text" placeholder="https://x.com/...（※サーバ側APIが必要）" />
+      </div>
+      <div class="row" style="margin-top:8px; gap:8px;">
+        <button id="btnHeuristic" class="primary">ローカル判定（ヒューリスティック）</button>
+        <button id="btnAI" title="サーバに用意した /api/judge を叩きます">AI判定（API経由）</button>
+        <button id="btnClear">全消去</button>
+      </div>
 
-const svg = d3.select("#viz").append("svg")
-  .attr("width", "100%")
-  .attr("height", "100%");
+      <div style="margin-top:12px">
+        <canvas id="radar" height="260"></canvas>
+      </div>
 
-const tooltip = d3.select("#tooltip");
+      <div style="margin-top:12px" id="verdict" class="tiny"></div>
+      <hr style="border-color:#1c2129; margin:12px 0">
+      <div class="tiny muted">
+        <b>評価の定義</b>：妥当性=根拠/データ/限定条件の明示、一貫性=主張内矛盾/論理接続、詭弁=人身攻撃/藁人形/論点ずらし等の検出（ペナルティ）。
+      </div>
+    </section>
+  </main>
 
-const simulation = d3.forceSimulation(debateData)
-  .force("link", d3.forceLink(debateLinks).id(d => d.id).distance(150))
-  .force("charge", d3.forceManyBody().strength(-250))
-  .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2.5));
+  <section class="footer">
+    <div>v0.1（静的プロトタイプ）— GitHub Pages 直置き可。AI判定とTwitter取得はサーバ連携で拡張。</div>
+  </section>
 
-const link = svg.selectAll("line")
-  .data(debateLinks)
-  .enter()
-  .append("line")
-  .attr("stroke", "#aaa")
-  .attr("stroke-width", 2);
+  <script>
+    // --- 詭弁・誤謬キーワード辞書（簡易） ---
+    const FALLACY_DICT = [
+      { key:"ad hominem", words:["バカ","無知","お前","人格","キモい","低能"], weight:12 },
+      { key:"strawman", words:["極論","つまりお前は","要するにお前は","勝手に解釈"], weight:10 },
+      { key:"whataboutism", words:["それより","でも○○は?","他は?","ダブルスタンダード"], weight:7 },
+      { key:"slippery slope", words:["必ず","絶対","一度でも","破滅","取り返しがつかない"], weight:6 },
+      { key:"appeal to authority", words:["専門家が言ってる","大企業が言ってる","テレビで"], weight:5 },
+      { key:"false dichotomy", words:["二択","どっちか","白か黒か"], weight:6 },
+      { key:"circular reasoning", words:["なぜなら","それは","同じことを繰り返し"], weight:4 },
+      { key:"hasty generalization", words:["みんな","誰でも","常識","いつも","全員"], weight:5 },
+      { key:"red herring", words:["ところで","話は変わるが","余談だが"], weight:4 },
+    ];
 
-const colorByStance = stance => ({
-  pro: "#4caf50", con: "#f44336", neutral: "#9e9e9e"
-}[stance] || "#bbb");
+    // --- 妥当性/一貫性の素朴スコアリング（0-100） ---
+    function scoreValidity(text){
+      if(!text) return 0;
+      const t = norm(text);
+      let s = 10;
+      // ソース/根拠
+      if(/https?:\/\//.test(t)) s += 20;
+      if(/[0-9]{2,}%|\d{2,}/.test(t)) s += 15; // 数値/割合
+      if(/[0-9]{4}/.test(t)) s += 8; // 年
+      if(/[\u7814\u7a76\u8ad6\u6587\u30c7\u30fc\u30bf\u30bd\u30fc\u30b9]/.test(t)) s += 10; // 「研究/論文/データ/ソース」
+      if(/しかし|一方で|但し|ただし|限定|条件/.test(t)) s += 12; // 限定条件
+      if(/定義|用語|前提/.test(t)) s += 6;  // 用語定義
+      // 冗長/感情過多ペナ
+      const len = t.length;
+      if(len > 1200) s -= 10; // 長すぎ
+      if(/[!！]{2,}/.test(t)) s -= 8; // 感嘆連打
+      if(/(最悪|許せない|ムカつく|ありえない|ふざけるな)/.test(t)) s -= 6;
+      return clamp(s,0,100);
+    }
 
-const node = svg.selectAll("circle")
-  .data(debateData)
-  .enter()
-  .append("circle")
-  .attr("r", d => 15 + (d.validity / 10))
-  .attr("fill", d => colorByStance(d.stance))
-  .attr("stroke", d => d.fallacy ? "#ff0000" : "#fff")
-  .attr("stroke-width", d => d.fallacy ? 3 : 1)
-  .on("click", showInfo)
-  .on("mousemove", e => tooltip.style("top", (e.pageY+5)+"px").style("left", (e.pageX+10)+"px"))
-  .on("mouseover", (e,d) => {
-    tooltip.style("visibility","visible").text(d.fallacy ? "誤謬: " + d.fallacy : d.text);
-  })
-  .on("mouseout", () => tooltip.style("visibility","hidden"));
+    function scoreConsistency(text){
+      if(!text) return 0;
+      const t = norm(text);
+      let s = 55;
+      // 論理接続子の充実
+      const connectors = (t.match(/だから|したがって|ゆえに|つまり|従って|よって|結果|根拠/g)||[]).length;
+      s += Math.min(20, connectors*4);
+      // 自家撞着の兆候
+      const contradiction = /(しかし|でも|とはいえ).+?(しかし|でも|とはいえ)/.test(t);
+      if(contradiction) s -= 15;
+      // 話題逸脱ぽさ（赤ニシン）：余談マーカーが多い
+      const tangents = (t.match(/ところで|余談|閑話休題/g)||[]).length;
+      s -= Math.min(12, tangents*6);
+      // 断定口調が強すぎると一貫性に負荷（反例を無視しがち）
+      const absolutist = (t.match(/絶対|必ず|100%|完全に/g)||[]).length;
+      s -= Math.min(12, absolutist*6);
+      return clamp(s,0,100);
+    }
 
-const label = svg.selectAll("text")
-  .data(debateData)
-  .enter()
-  .append("text")
-  .attr("text-anchor", "middle")
-  .attr("dy", ".35em")
-  .attr("font-size", "10px")
-  .text(d => d.text.length > 15 ? d.text.slice(0,15)+"…" : d.text);
+    function detectFallacies(text){
+      if(!text) return { tags:[], penalty:0 };
+      const t = norm(text);
+      const tags = [];
+      let penalty = 0;
+      for(const rule of FALLACY_DICT){
+        const hit = rule.words.some(w=> t.includes(w));
+        if(hit){ tags.push(rule.key); penalty += rule.weight; }
+      }
+      // 重複・上限
+      const unique = [...new Set(tags)];
+      penalty = Math.min(40, penalty);
+      return { tags: unique, penalty };
+    }
 
-simulation.on("tick", () => {
-  link.attr("x1", d => d.source.x)
-      .attr("y1", d => d.source.y)
-      .attr("x2", d => d.target.x)
-      .attr("y2", d => d.target.y);
-  node.attr("cx", d => d.x)
-      .attr("cy", d => d.y);
-  label.attr("x", d => d.x)
-       .attr("y", d => d.y);
-});
+    function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
+    function norm(t){ return String(t).replace(/\s+/g,' ').trim(); }
 
-function showInfo(event, d){
-  const info = `
-    <b>${d.text}</b><br>
-    立場: ${d.stance}<br>
-    妥当性: ${d.validity}<br>
-    誤謬: ${d.fallacy || "なし"}
-  `;
-  document.getElementById("info").innerHTML = info;
-}
+    // --- レーダーチャート ---
+    const ctx = document.getElementById('radar');
+    const chart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: ['妥当性','一貫性','（100-詭弁ペナ）'],
+        datasets: [
+          { label:'側A', data:[0,0,0], borderWidth:2, pointRadius:3 },
+          { label:'側B', data:[0,0,0], borderWidth:2, pointRadius:3 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales:{ r:{ beginAtZero:true, max:100, angleLines:{color:'#1e2630'}, grid:{color:'#1e2630'}, pointLabels:{ color:'#cfe6ff' } }},
+        plugins:{ legend:{ labels:{ color:'#cfe6ff' } } }
+      }
+    });
 
-function filterFallacies(){
-  currentFilter = "fallacy";
-  node.attr("opacity", d => d.fallacy ? 1 : 0.1);
-  label.attr("opacity", d => d.fallacy ? 1 : 0.1);
-  link.attr("opacity", 0.1);
-}
+    // --- UIイベント ---
+    const textA = document.getElementById('textA');
+    const textB = document.getElementById('textB');
+    const vA = document.getElementById('vA'), cA = document.getElementById('cA'), fA = document.getElementById('fA');
+    const vB = document.getElementById('vB'), cB = document.getElementById('cB'), fB = document.getElementById('fB');
+    const tagsA = document.getElementById('tagsA'), tagsB = document.getElementById('tagsB');
 
-function filterAll(){
-  currentFilter = "all";
-  node.attr("opacity", 1);
-  label.attr("opacity", 1);
-  link.attr("opacity", 1);
-}
-</script>
+    document.getElementById('btnHeuristic').addEventListener('click', ()=>{
+      const resA = evaluateText(textA.value);
+      const resB = evaluateText(textB.value);
+      renderStats('A', resA); renderStats('B', resB);
+      updateChart(resA, resB);
+      showVerdict(resA, resB, '（ヒューリスティック）');
+    });
+
+    document.getElementById('btnAI').addEventListener('click', async ()=>{
+      const url = document.getElementById('tweetUrl').value.trim();
+      const payload = { a:textA.value, b:textB.value, tweetUrl:url||null };
+      try{
+        const resp = await fetch('/api/judge', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        if(!resp.ok) throw new Error('API error');
+        const data = await resp.json();
+        // 期待JSON: {A:{validity,consistency,fallacyPenalty,tags:[]}, B:{...}, winner:"A|B|draw", rationale:"..."}
+        const resA = data.A, resB = data.B;
+        renderStats('A', resA); renderStats('B', resB);
+        updateChart(resA, resB);
+        const verdict = document.getElementById('verdict');
+        verdict.innerHTML = `<div class="winner">判定: ${data.winner==='draw'?'引き分け':(data.winner==='A'?'側A 勝利':'側B 勝利')}</div><div class="tiny muted" style="margin-top:6px">理由: ${escapeHtml(data.rationale||'')}</div>`;
+      }catch(e){
+        alert('AI判定APIに接続できません。サーバ側の /api/judge を実装してください。');
+        console.error(e);
+      }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', ()=>{ textA.value=''; textB.value=''; clearStats(); updateChart({},{}) ; document.getElementById('verdict').textContent=''; });
+    document.getElementById('clearA').addEventListener('click', ()=>{ textA.value=''; clearStats('A'); updateChart({},{}); document.getElementById('verdict').textContent=''; });
+    document.getElementById('clearB').addEventListener('click', ()=>{ textB.value=''; clearStats('B'); updateChart({},{}); document.getElementById('verdict').textContent=''; });
+
+    function evaluateText(t){
+      const validity = scoreValidity(t);
+      const consistency = scoreConsistency(t);
+      const { tags, penalty } = detectFallacies(t);
+      return { validity, consistency, fallacyPenalty: clamp(penalty,0,100), tags };
+    }
+
+    function renderStats(side, r){
+      if(side==='A'){
+        vA.textContent = r.validity; cA.textContent = r.consistency; fA.textContent = r.fallacyPenalty;
+        tagsA.innerHTML = (r.tags||[]).map(x=>`<span class="badge">${x}</span>`).join('') || '<span class="muted tiny">詭弁なし</span>';
+      }else{
+        vB.textContent = r.validity; cB.textContent = r.consistency; fB.textContent = r.fallacyPenalty;
+        tagsB.innerHTML = (r.tags||[]).map(x=>`<span class="badge">${x}</span>`).join('') || '<span class="muted tiny">詭弁なし</span>';
+      }
+    }
+
+    function clearStats(which){
+      const any = !which;
+      if(any || which==='A'){ vA.textContent='-'; cA.textContent='-'; fA.textContent='-'; tagsA.innerHTML=''; }
+      if(any || which==='B'){ vB.textContent='-'; cB.textContent='-'; fB.textContent='-'; tagsB.innerHTML=''; }
+    }
+
+    function updateChart(a,b){
+      chart.data.datasets[0].data = a && a.validity!=null ? [a.validity, a.consistency, 100-(a.fallacyPenalty||0)] : [0,0,0];
+      chart.data.datasets[1].data = b && b.validity!=null ? [b.validity, b.consistency, 100-(b.fallacyPenalty||0)] : [0,0,0];
+      chart.update();
+    }
+
+    function showVerdict(a,b, suffix=''){
+      const scoreA = a.validity + a.consistency + (100-a.fallacyPenalty);
+      const scoreB = b.validity + b.consistency + (100-b.fallacyPenalty);
+      const verdict = document.getElementById('verdict');
+      let text = '';
+      if(Math.abs(scoreA-scoreB) <= 10){ text = `判定: 引き分け ${suffix}`; }
+      else if(scoreA>scoreB){ text = `判定: 側A 勝利 ${suffix}`; }
+      else { text = `判定: 側B 勝利 ${suffix}`; }
+      const explain = `総合点 A:${Math.round(scoreA)} / B:${Math.round(scoreB)}（= 妥当性 + 一貫性 + (100-詭弁ペナ)）`;
+      verdict.innerHTML = `<div class="winner">${text}</div><div class="tiny muted" style="margin-top:6px">${explain}</div>`;
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+  </script>
 </body>
 </html>
