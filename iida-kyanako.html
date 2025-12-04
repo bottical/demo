@@ -5,26 +5,26 @@
   <title>8チーム対抗戦スコアボード</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root {
-      --bg: #0b1120;
-      --card: #020617;
-      --card-soft: #0f172a;
-      --ink: #e5e7eb;
-      --muted: #9ca3af;
-      --accent: #22c55e;
-      --accent-soft: #16a34a;
-      --accent-alt: #38bdf8;
-      --border: #1f2937;
-      --danger: #f97373;
-    }
+:root {
+  --bg: #faf9f7;            /* 白に近いアイボリー */
+  --card: #ffffff;          /* 真っ白 */
+  --card-soft: #f6f3ee;     /* 柔らかい背景 */
+  --ink: #4b5563;           /* やさしい濃いグレー */
+  --muted: #9ca3af;
+  --accent: #f4b183;        /* 柔らかいオレンジ（温かい雰囲気） */
+  --accent-soft: #f7c9a9;   /* アクセントの淡色 */
+  --accent-alt: #ffd8b5;    /* グラデーションの明るい側 */
+  --border: #e5e7eb;
+  --danger: #f87171;        /* リセットボタン用の柔らかい赤 */
+}
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         "Noto Sans JP", sans-serif;
-      background: radial-gradient(circle at top, #1f2937 0, #020617 45%, #020617 100%);
-      color: var(--ink);
+  background: linear-gradient(180deg, #ffffff 0%, #faf9f7 80%);
+  color: var(--ink);
     }
 
     .page {
@@ -50,7 +50,8 @@
 
     .title {
       font-size: 1.35rem;
-      font-weight: 700;
+  font-weight: 600;
+  color: #8b5e34; /* ウェディング感のあるブラウン系 */
       letter-spacing: 0.03em;
       display: flex;
       align-items: center;
@@ -77,9 +78,9 @@
     }
 
     .btn {
-      border: 1px solid rgba(148,163,184,0.5);
-      background: rgba(15,23,42,0.8);
-      color: var(--ink);
+        border: 1px solid #e2e2e2;
+        background: #fff;
+        color: var(--ink);
       padding: 6px 10px;
       border-radius: 999px;
       font-size: 0.8rem;
@@ -90,7 +91,7 @@
       transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
     }
     .btn:hover {
-      background: rgba(31,41,55,0.95);
+        background: #fdf7f2;
       border-color: rgba(148,163,184,0.9);
     }
     .btn:active {
@@ -101,12 +102,12 @@
       font-size: 0.75rem;
     }
     .btn-accent {
-      border-color: rgba(34,197,94,0.7);
-      background: radial-gradient(circle at top left, rgba(34,197,94,0.18), rgba(15,23,42,0.9));
+  background: #f9ebe1;
+  border-color: #f4b183;
     }
     .btn-danger {
-      border-color: rgba(248,113,113,0.7);
-      background: radial-gradient(circle at top left, rgba(248,113,113,0.18), rgba(15,23,42,0.9));
+  background: #fde8e8;
+  border-color: #f87171;
     }
 
     .layout {
@@ -122,10 +123,10 @@
     }
 
     .panel {
-      background: radial-gradient(circle at top, rgba(148,163,184,0.18), rgba(15,23,42,1) 38%, rgba(15,23,42,1) 100%);
+  background: #ffffff;
       border-radius: 18px;
-      border: 1px solid rgba(30,64,175,0.6);
-      box-shadow:
+  border: 1px solid #ececec;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         0 22px 40px rgba(15,23,42,0.9),
         0 0 40px rgba(56,189,248,0.15);
       padding: 14px 14px 16px;
@@ -159,7 +160,7 @@
       font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: #cbd5f5;
+  color: #8b5e34;
     }
     .panel-sub {
       font-size: 0.75rem;
@@ -184,9 +185,9 @@
     }
 
     .team-card {
-      background: radial-gradient(circle at top, rgba(15,23,42,0.7), rgba(15,23,42,1) 40%, rgba(15,23,42,1) 100%);
+  background: #ffffff;
       border-radius: 14px;
-      border: 1px solid rgba(30,64,175,0.7);
+  border: 1px solid #eae6df;
       padding: 10px 10px 10px;
       display: grid;
       grid-template-columns: minmax(0, 1.6fr) minmax(0, 2fr);
@@ -281,21 +282,23 @@
       position: relative;
       height: 14px;
       border-radius: 999px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(55,65,81,0.9);
+  background: #f6f3ee;
+  border: 1px solid #e8dfd3;
       overflow: hidden;
     }
     .chart-bar-fill {
       position: absolute;
       inset: 0;
       width: 0%;
-      background: linear-gradient(90deg, var(--accent-soft), var(--accent-alt));
-      box-shadow: 0 0 18px rgba(56,189,248,0.6);
+  background: linear-gradient(90deg, var(--accent-soft), var(--accent-alt));
+  box-shadow: none;
       transition: width 0.2s ease-out;
+        border-radius: 999px;
     }
     .chart-score {
       font-variant-numeric: tabular-nums;
-      color: #e5e7eb;
+  color: #8b5e34;
+  font-weight: 600;
       text-align: right;
       min-width: 2.4em;
     }
@@ -317,8 +320,8 @@
       width: 6px;
       height: 6px;
       border-radius: 999px;
-      background: var(--accent);
-      box-shadow: 0 0 12px rgba(34,197,94,0.9);
+  background: var(--accent);
+  box-shadow: none;
       display: inline-block;
     }
   </style>
@@ -371,9 +374,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -392,9 +394,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -413,9 +414,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -434,9 +434,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -455,9 +454,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -476,9 +474,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -497,9 +494,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
@@ -518,9 +514,8 @@
                 </div>
               </div>
               <div class="team-controls">
-                <button class="btn btn-small" data-delta="-1">-1</button>
-                <button class="btn btn-small" data-delta="+1">+1</button>
-                <button class="btn btn-small" data-delta="+5">+5</button>
+                <button class="btn btn-small" data-delta="-10">-10</button>
+                <button class="btn btn-small" data-delta="+10">+10</button>
                 <button class="btn btn-small btn-danger" data-reset="1">リセット</button>
               </div>
             </article>
