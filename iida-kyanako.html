@@ -599,105 +599,145 @@
     </main>
   </div>
 
-  <script>
-    (function () {
-      const teamEls = Array.from(document.querySelectorAll('.team'));
-      const chartRows = Array.from(document.querySelectorAll('.chart-row'));
-      const scores = new Array(teamEls.length).fill(0);
+<script>
+  (function () {
+    const teamEls = Array.from(document.querySelectorAll('.team'));
+    const chartRows = Array.from(document.querySelectorAll('.chart-row'));
+    const scores = new Array(teamEls.length).fill(0);
 
-      const leaderNameEl = document.getElementById('leader-name');
-      const totalScoreEl = document.getElementById('total-score');
-      const btnResetAll = document.getElementById('btn-reset-all');
-      const btnRandom = document.getElementById('btn-random');
+    const leaderNameEl = document.getElementById('leader-name');
+    const totalScoreEl = document.getElementById('total-score');
+    const btnResetAll = document.getElementById('btn-reset-all');
+    const btnRandom = document.getElementById('btn-random');
 
-      function render() {
-        const names = teamEls.map(team => {
-          const input = team.querySelector('.team-name-input');
-          return input.value.trim() || 'チーム';
-        });
+    // ==== チーム名の保存 / 読み込み ====
+    const STORAGE_KEY_NAMES = 'wedding_scoreboard_team_names_v1';
 
-        let maxScore = 0;
-        let maxIndex = -1;
-        let total = 0;
-        scores.forEach((v, i) => {
-          if (v > maxScore) {
-            maxScore = v;
-            maxIndex = i;
+    function loadTeamNames() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_NAMES);
+        if (!raw) return;
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return;
+
+        arr.forEach((name, i) => {
+          if (typeof name === 'string' && teamEls[i]) {
+            const input = teamEls[i].querySelector('.team-name-input');
+            if (input) input.value = name;
           }
-          total += v;
         });
-        if (maxScore <= 0) {
-          maxScore = 1; // 0割防止
+      } catch (e) {
+        console.warn('failed to load team names', e);
+      }
+    }
+
+    function saveTeamNames() {
+      const names = teamEls.map(team => {
+        const input = team.querySelector('.team-name-input');
+        return input ? (input.value || '') : '';
+      });
+      try {
+        localStorage.setItem(STORAGE_KEY_NAMES, JSON.stringify(names));
+      } catch (e) {
+        console.warn('failed to save team names', e);
+      }
+    }
+    // ==============================
+
+    function render() {
+      const names = teamEls.map(team => {
+        const input = team.querySelector('.team-name-input');
+        return input.value.trim() || 'チーム';
+      });
+
+      let maxScore = 0;
+      let maxIndex = -1;
+      let total = 0;
+      scores.forEach((v, i) => {
+        if (v > maxScore) {
+          maxScore = v;
+          maxIndex = i;
         }
-
-        // 左のカード
-        teamEls.forEach((team, index) => {
-          const scoreSpan = team.querySelector('.js-score');
-          scoreSpan.textContent = scores[index];
-        });
-
-        // 右のグラフ
-        chartRows.forEach((row, index) => {
-          const nameEl = row.querySelector('.chart-name');
-          const barFill = row.querySelector('.chart-bar-fill');
-          const scoreEl = row.querySelector('.chart-score');
-
-          nameEl.textContent = names[index];
-          scoreEl.textContent = scores[index];
-
-          const percent = (scores[index] / maxScore) * 100;
-          barFill.style.width = scores[index] === 0 ? '0%' : percent + '%';
-        });
-
-        if (maxIndex === -1 || total === 0) {
-          leaderNameEl.textContent = '—';
-        } else {
-          leaderNameEl.textContent = names[maxIndex] + '（' + scores[maxIndex] + 'pt）';
-        }
-        totalScoreEl.textContent = total;
+        total += v;
+      });
+      if (maxScore <= 0) {
+        maxScore = 1; // 0割防止
       }
 
-      // ボタンクリック（イベントデリゲーション）
-      document.getElementById('teams').addEventListener('click', function (e) {
-        const btn = e.target.closest('button');
-        if (!btn) return;
-
-        const teamEl = e.target.closest('.team');
-        if (!teamEl) return;
-        const index = Number(teamEl.dataset.index);
-
-        if (btn.dataset.delta) {
-          const delta = Number(btn.dataset.delta);
-          scores[index] = Math.max(0, scores[index] + delta);
-          render();
-        } else if (btn.dataset.reset) {
-          scores[index] = 0;
-          render();
-        }
+      // 左のカードのスコア表示
+      teamEls.forEach((team, index) => {
+        const scoreSpan = team.querySelector('.js-score');
+        scoreSpan.textContent = scores[index];
       });
 
-      // チーム名変更 → グラフ側のラベルも更新
-      teamEls.forEach((team) => {
-        const input = team.querySelector('.team-name-input');
-        input.addEventListener('input', render);
+      // 右のグラフ
+      chartRows.forEach((row, index) => {
+        const nameEl = row.querySelector('.chart-name');
+        const barFill = row.querySelector('.chart-bar-fill');
+        const scoreEl = row.querySelector('.chart-score');
+
+        nameEl.textContent = names[index];
+        scoreEl.textContent = scores[index];
+
+        const percent = (scores[index] / maxScore) * 100;
+        barFill.style.width = scores[index] === 0 ? '0%' : percent + '%';
       });
 
-      // 全体リセット
-      btnResetAll.addEventListener('click', function () {
-        for (let i = 0; i < scores.length; i++) scores[i] = 0;
+      if (maxIndex === -1 || total === 0) {
+        leaderNameEl.textContent = '—';
+      } else {
+        leaderNameEl.textContent = names[maxIndex] + '（' + scores[maxIndex] + 'pt）';
+      }
+      totalScoreEl.textContent = total;
+    }
+
+    // ボタンクリック（イベントデリゲーション）
+    document.getElementById('teams').addEventListener('click', function (e) {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+
+      const teamEl = e.target.closest('.team');
+      if (!teamEl) return;
+      const index = Number(teamEl.dataset.index);
+
+      if (btn.dataset.delta) {
+        const delta = Number(btn.dataset.delta);
+        scores[index] = Math.max(0, scores[index] + delta); // マイナスにならないように0で止める
+        render();
+      } else if (btn.dataset.reset) {
+        scores[index] = 0;
+        render();
+      }
+    });
+
+    // チーム名変更 → 保存してからグラフ側のラベルも更新
+    teamEls.forEach((team) => {
+      const input = team.querySelector('.team-name-input');
+      input.addEventListener('input', () => {
+        saveTeamNames();
         render();
       });
+    });
 
-      // ランダムでサンプル値（0〜100を10点刻み）
-      btnRandom.addEventListener('click', function () {
-        for (let i = 0; i < scores.length; i++) {
-          scores[i] = Math.floor(Math.random() * 11) * 10; // 0,10,20,...100
-        }
-        render();
-      });
-
+    // 全体リセット（スコアのみリセット／チーム名は残す）
+    btnResetAll.addEventListener('click', function () {
+      for (let i = 0; i < scores.length; i++) scores[i] = 0;
       render();
-    })();
-  </script>
+    });
+
+    // ランダムでサンプル値（0〜100を10点刻み）
+    btnRandom.addEventListener('click', function () {
+      for (let i = 0; i < scores.length; i++) {
+        scores[i] = Math.floor(Math.random() * 11) * 10; // 0,10,20,...100
+      }
+      render();
+    });
+
+    // 初期ロード時に保存済みのチーム名を反映 → 表示更新
+    loadTeamNames();
+    render();
+  })();
+</script>
+
 </body>
 </html>
