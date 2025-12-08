@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>ダンボールサイズ合理化・暫定シミュレーター（MVP）</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f9fafb;
+      --card: #ffffff;
+      --accent: #0f766e;
+      --accent-soft: #ccfbf1;
+      --accent-strong: #0f766e;
+      --danger: #f97373;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans JP", sans-serif;
+      background: radial-gradient(circle at top, #ecfeff 0, #f9fafb 40%, #f9fafb 100%);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px 16px 40px;
+    }
+    header {
+      margin-bottom: 16px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 1.4rem;
+      letter-spacing: 0.04em;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .card-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    input[type="file"] {
+      font-size: 0.86rem;
+    }
+    .hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    @media (max-width: 700px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .summary-item {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      background: #f9fafb;
+    }
+    .summary-label {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .summary-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .summary-detail {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    canvas {
+      width: 100%;
+      max-width: 100%;
+      height: 260px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #f9fafb;
+    }
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 720px;
+    }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th {
+      text-align: right;
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: #f3f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    th:first-child, td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: #ffffff;
+    }
+    tbody tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid rgba(15, 118, 110, 0.25);
+      background: #ecfeff;
+      color: #0f766e;
+    }
+    .pill-muted {
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #4b5563;
+    }
+    .badge-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      margin-right: 4px;
+      background: #0f766e;
+    }
+    .alert {
+      font-size: 0.78rem;
+      color: var(--danger);
+      margin-top: 6px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>ダンボールサイズ合理化・暫定シミュレーター（MVP）</h1>
+      <p>箱サイズCSVを読み込み、「サイズ区分」「体積」「近似グループ」を可視化します（商品サイズなし版）。</p>
+    </header>
+
+    <!-- CSV アップロード -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">① 箱サイズCSVを読み込む</div>
+          <div class="card-sub">対応カラム：name, length, width, height（mm）</div>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv" />
+      <div class="hint">
+        サンプル形式：
+        <pre style="margin:6px 0 0;font-size:0.72rem;white-space:pre;background:#f3f4f6;padding:6px 8px;border-radius:6px;overflow-x:auto;">
+name,length,width,height
+60サイズ小,230,190,140
+60サイズ中,240,200,140
+80サイズ,300,250,180</pre>
+      </div>
+      <div id="errorBox" class="alert hidden"></div>
+    </section>
+
+    <!-- サマリー -->
+    <section class="card" id="summaryCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-title">② サマリー</div>
+        <div class="card-sub">読み込んだ箱ラインナップの概要</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="summary-label">箱の総数</div>
+          <div class="summary-value" id="totalBoxes">0</div>
+          <div class="summary-detail" id="uniqueGroupsLabel">近似グループ数: 0</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">体積レンジ（最小〜最大）</div>
+          <div class="summary-value" id="volumeRange">-</div>
+          <div class="summary-detail">単位：立方mm</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">サイズ区分の種類数</div>
+          <div class="summary-value" id="sizeBandsCount">0</div>
+          <div class="summary-detail" id="sizeBandsDetail">-</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 散布図 -->
+    <section class="card" id="chartCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-title">③ 体積 × 3辺合計 散布図</div>
+        <div class="card-sub">近い点が固まっているエリアが「被りゾーン」の目安</div>
+      </div>
+      <canvas id="scatterCanvas"></canvas>
+      <div class="hint">
+        X軸：体積（L×W×H） / Y軸：3辺合計（L+W+H）。<br>
+        色は近似グループIDごとに変えています（暫定ロジック）。
+      </div>
+    </section>
+
+    <!-- テーブル -->
+    <section class="card" id="tableCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-title">④ 箱一覧（正規化済み）</div>
+        <div class="card-sub">長辺 ≥ 中辺 ≥ 短辺に正規化し、体積・サイズ区分を付与</div>
+      </div>
+      <div class="table-wrapper">
+        <table id="boxesTable">
+          <thead>
+            <tr>
+              <th>箱名</th>
+              <th>L×W×H (mm)</th>
+              <th>体積 (mm³)</th>
+              <th>3辺合計 (mm)</th>
+              <th>サイズ区分</th>
+              <th>近似グループID</th>
+            </tr>
+          </thead>
+          <tbody id="boxesTbody"></tbody>
+        </table>
+      </div>
+      <div class="hint">
+        近似グループIDは、同じサイズ区分内で「体積差 ≦15%」「各辺差 ≦30mm」を目安にクラスタリングした暫定指標です。
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ===== ユーティリティ =====
+    function showError(msg) {
+      const box = document.getElementById("errorBox");
+      box.textContent = msg;
+      box.classList.remove("hidden");
+    }
+    function clearError() {
+      const box = document.getElementById("errorBox");
+      box.textContent = "";
+      box.classList.add("hidden");
+    }
+
+    // シンプルなCSVパーサ（カンマ区切り・ダブルクォート簡易対応）
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (lines.length < 2) return { header: [], rows: [] };
+      const header = splitCSVLine(lines[0]);
+      const rows = lines.slice(1).map(line => splitCSVLine(line));
+      return { header, rows };
+    }
+    function splitCSVLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          // "" → " として扱う簡易実装
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          result.push(current);
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    // サイズ区分（かなり暫定）
+    function classifySize(sum) {
+      if (sum <= 600) return "60";
+      if (sum <= 800) return "80";
+      if (sum <= 1000) return "100";
+      if (sum <= 1200) return "120";
+      if (sum <= 1400) return "140";
+      if (sum <= 1600) return "160";
+      return "160+";
+    }
+
+    // 近似グループ判定用：2つの箱が似ているか？
+    function isSimilarBox(a, b) {
+      if (a.sizeBand !== b.sizeBand) return false;
+      const volBig = Math.max(a.volume, b.volume);
+      const volDiffRatio = Math.abs(a.volume - b.volume) / (volBig || 1);
+      if (volDiffRatio > 0.15) return false; // 15%超えたら別物
+
+      const diffL = Math.abs(a.L - b.L);
+      const diffW = Math.abs(a.W - b.W);
+      const diffH = Math.abs(a.H - b.H);
+      if (diffL > 30 || diffW > 30 || diffH > 30) return false; // 30mm以上差があると遠いとみなす
+
+      return true;
+    }
+
+    // 近似グルーピング（簡易版：Union-Find的に連結成分でラベル付け）
+    function assignSimilarGroups(boxes) {
+      let currentGroupId = 1;
+      const visited = new Array(boxes.length).fill(false);
+      const groups = new Array(boxes.length).fill(null);
+
+      for (let i = 0; i < boxes.length; i++) {
+        if (visited[i]) continue;
+        // 新しいグループ開始
+        const gid = currentGroupId++;
+        const stack = [i];
+        visited[i] = true;
+        groups[i] = gid;
+
+        while (stack.length > 0) {
+          const idx = stack.pop();
+          const base = boxes[idx];
+          for (let j = 0; j < boxes.length; j++) {
+            if (visited[j]) continue;
+            if (isSimilarBox(base, boxes[j])) {
+              visited[j] = true;
+              groups[j] = gid;
+              stack.push(j);
+            }
+          }
+        }
+      }
+
+      boxes.forEach((b, idx) => {
+        b.simGroup = groups[idx];
+      });
+
+      const uniqueGroups = Array.from(new Set(groups)).filter(Boolean);
+      return uniqueGroups.length;
+    }
+
+    // 散布図描画
+    function drawScatter(boxes) {
+      const canvas = document.getElementById("scatterCanvas");
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width = canvas.clientWidth;
+      const H = canvas.height = canvas.clientHeight;
+
+      ctx.clearRect(0, 0, W, H);
+
+      if (!boxes.length) return;
+
+      const volumes = boxes.map(b => b.volume);
+      const sums = boxes.map(b => b.sum);
+      const minV = Math.min(...volumes);
+      const maxV = Math.max(...volumes);
+      const minS = Math.min(...sums);
+      const maxS = Math.max(...sums);
+
+      const padX = 40;
+      const padY = 30;
+
+      function xScale(v) {
+        if (maxV === minV) return W / 2;
+        return padX + ( (v - minV) / (maxV - minV) ) * (W - padX * 2);
+      }
+      function yScale(s) {
+        if (maxS === minS) return H / 2;
+        const ratio = (s - minS) / (maxS - minS);
+        return H - padY - ratio * (H - padY * 2);
+      }
+
+      // 軸
+      ctx.strokeStyle = "#d1d5db";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padX, padY);
+      ctx.lineTo(padX, H - padY);
+      ctx.lineTo(W - padX, H - padY);
+      ctx.stroke();
+
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "10px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("体積", W / 2, H - 6);
+      ctx.save();
+      ctx.translate(10, H / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText("3辺合計", 0, 0);
+      ctx.restore();
+
+      // グループごとに色を変える（簡易パレット）
+      const groups = Array.from(new Set(boxes.map(b => b.simGroup))).sort((a,b)=>a-b);
+      const palette = [
+        "#0f766e", "#2563eb", "#7c3aed", "#ea580c",
+        "#16a34a", "#db2777", "#0891b2", "#b45309"
+      ];
+      const groupColor = gid => {
+        const idx = groups.indexOf(gid);
+        if (idx === -1) return "#6b7280";
+        return palette[idx % palette.length];
+      };
+
+      // 点描画
+      boxes.forEach(b => {
+        const x = xScale(b.volume);
+        const y = yScale(b.sum);
+        const r = 4;
+        ctx.beginPath();
+        ctx.fillStyle = groupColor(b.simGroup);
+        ctx.globalAlpha = 0.9;
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1.0;
+    }
+
+    // メイン処理：CSV読み込み → 正規化 → 集計 → 描画
+    document.getElementById("fileInput").addEventListener("change", event => {
+      clearError();
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const text = e.target.result;
+          const { header, rows } = parseCSV(text);
+          if (!header.length || !rows.length) {
+            showError("CSVの内容を読み取れませんでした。ヘッダ行＋データ行があるか確認してください。");
+            return;
+          }
+
+          // 必須カラムのインデックスを取得
+          const lower = header.map(h => h.trim().toLowerCase());
+          const idxName = lower.indexOf("name");
+          const idxL = lower.indexOf("length");
+          const idxW = lower.indexOf("width");
+          const idxH = lower.indexOf("height");
+          if (idxName === -1 || idxL === -1 || idxW === -1 || idxH === -1) {
+            showError("ヘッダに name, length, width, height カラムが必要です。");
+            return;
+          }
+
+          const boxes = [];
+          for (const row of rows) {
+            if (!row.length) continue;
+            const rawName = (row[idxName] || "").trim();
+            if (!rawName) continue;
+
+            const l = Number((row[idxL] || "").trim());
+            const w = Number((row[idxW] || "").trim());
+            const h = Number((row[idxH] || "").trim());
+            if (!Number.isFinite(l) || !Number.isFinite(w) || !Number.isFinite(h)) {
+              continue; // 数値変換できない行はスキップ
+            }
+            if (l <= 0 || w <= 0 || h <= 0) continue;
+
+            // 長辺・中辺・短辺に並び替え
+            const dims = [l, w, h].sort((a, b) => b - a);
+            const L = dims[0], W = dims[1], H = dims[2];
+            const volume = L * W * H;
+            const sum = L + W + H;
+            const sizeBand = classifySize(sum);
+
+            boxes.push({
+              name: rawName,
+              L, W, H,
+              volume,
+              sum,
+              sizeBand,
+              simGroup: null
+            });
+          }
+
+          if (!boxes.length) {
+            showError("有効な箱データが1件も読み込めませんでした。数値の形式を確認してください。");
+            return;
+          }
+
+          // ソート：サイズ区分 → 体積 → 名前
+          boxes.sort((a, b) => {
+            if (a.sizeBand === b.sizeBand) {
+              if (a.volume === b.volume) {
+                return a.name.localeCompare(b.name, "ja");
+              }
+              return a.volume - b.volume;
+            }
+            // sizeBand を数字として扱える範囲で比較
+            const toNum = v => (v.endsWith("+") ? Number(v.slice(0, -1)) + 0.1 : Number(v));
+            return toNum(a.sizeBand) - toNum(b.sizeBand);
+          });
+
+          // 近似グループID付与
+          const groupCount = assignSimilarGroups(boxes);
+
+          // サマリー更新
+          const total = boxes.length;
+          const volumes = boxes.map(b => b.volume);
+          const minV = Math.min(...volumes);
+          const maxV = Math.max(...volumes);
+
+          const sizeBands = Array.from(new Set(boxes.map(b => b.sizeBand))).sort((a, b) => {
+            const toNum = v => (v.endsWith("+") ? Number(v.slice(0, -1)) + 0.1 : Number(v));
+            return toNum(a) - toNum(b);
+          });
+
+          document.getElementById("totalBoxes").textContent = total.toLocaleString("ja-JP");
+          document.getElementById("volumeRange").textContent =
+            `${minV.toLocaleString("ja-JP")} 〜 ${maxV.toLocaleString("ja-JP")}`;
+          document.getElementById("sizeBandsCount").textContent = sizeBands.length;
+          document.getElementById("sizeBandsDetail").textContent =
+            sizeBands.map(b => `${b}サイズ`).join(" / ");
+          document.getElementById("uniqueGroupsLabel").textContent =
+            `近似グループ数: ${groupCount.toLocaleString("ja-JP")}`;
+
+          document.getElementById("summaryCard").style.display = "";
+          document.getElementById("chartCard").style.display = "";
+          document.getElementById("tableCard").style.display = "";
+
+          // テーブル更新
+          const tbody = document.getElementById("boxesTbody");
+          tbody.innerHTML = "";
+          boxes.forEach(b => {
+            const tr = document.createElement("tr");
+
+            const tdName = document.createElement("td");
+            tdName.textContent = b.name;
+
+            const tdDims = document.createElement("td");
+            tdDims.textContent = `${b.L} × ${b.W} × ${b.H}`;
+
+            const tdVol = document.createElement("td");
+            tdVol.textContent = b.volume.toLocaleString("ja-JP");
+
+            const tdSum = document.createElement("td");
+            tdSum.textContent = b.sum.toLocaleString("ja-JP");
+
+            const tdBand = document.createElement("td");
+            const spanBand = document.createElement("span");
+            spanBand.className = "pill pill-muted";
+            spanBand.innerHTML = `<span class="badge-dot"></span>${b.sizeBand}`;
+            tdBand.appendChild(spanBand);
+
+            const tdGroup = document.createElement("td");
+            const spanGroup = document.createElement("span");
+            spanGroup.className = "pill";
+            spanGroup.textContent = `G${b.simGroup}`;
+            tdGroup.appendChild(spanGroup);
+
+            tr.appendChild(tdName);
+            tr.appendChild(tdDims);
+            tr.appendChild(tdVol);
+            tr.appendChild(tdSum);
+            tr.appendChild(tdBand);
+            tr.appendChild(tdGroup);
+
+            tbody.appendChild(tr);
+          });
+
+          // 散布図描画
+          drawScatter(boxes);
+        } catch (err) {
+          console.error(err);
+          showError("CSVの解析中にエラーが発生しました。フォーマットを確認してください。");
+        }
+      };
+      reader.onerror = () => {
+        showError("ファイルの読み込みに失敗しました。");
+      };
+      reader.readAsText(file, "utf-8");
+    });
+  </script>
+</body>
+</html>
