@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物流箱サイズ分析シミュレーター</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <div class="container mx-auto p-6 max-w-6xl">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-blue-900">📦 物流箱サイズ分析 MVP</h1>
+            <p class="text-gray-600 mt-2">既存ダンボールの「運賃ロス」と「重複」を可視化し、統合候補を発見します。</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">1. データ投入</h2>
+            <div class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-1 w-full">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CSVファイルを選択</label>
+                    <input type="file" id="csvInput" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    <p class="text-xs text-gray-500 mt-1">フォーマット: 名称, 長さ, 幅, 高さ (mm単位)</p>
+                </div>
+                <div class="pb-1">
+                    <span class="text-sm text-gray-400 mx-2">または</span>
+                    <button onclick="loadSampleData()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition">
+                        サンプルデータをロード
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+                    <p class="text-sm text-gray-500">分析対象</p>
+                    <p class="text-2xl font-bold" id="totalBoxes">-</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
+                    <p class="text-sm text-gray-500">改善推奨（サイズ境界直上）</p>
+                    <p class="text-2xl font-bold text-red-600" id="inefficientBoxes">-</p>
+                    <p class="text-xs text-gray-400">わずかなサイズダウンで運賃が下がる箱</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+                    <p class="text-sm text-gray-500">推奨アクション</p>
+                    <p class="text-lg font-bold">グラフの密集地帯を確認</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-xl font-semibold mb-4">2. サイズ分布散布図（3辺合計 vs 容積）</h2>
+                <div class="relative h-96 w-full">
+                    <canvas id="scatterChart"></canvas>
+                </div>
+                <div class="mt-4 text-sm text-gray-600 bg-blue-50 p-4 rounded">
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>縦の点線（60, 80...）</strong>：運送会社のサイズ区分の境界です。</li>
+                        <li><strong>赤い点</strong>：境界線をわずかに超えている「もったいない箱」です。数mm〜数cm小さくするだけで運賃区分が下がります。</li>
+                        <li><strong>点が密集している場所</strong>：サイズや形状が似ている箱です。統合・集約の候補となります。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">3. 詳細データ & 判定結果</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left text-sm whitespace-nowrap">
+                        <thead class="uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3">箱名称</th>
+                                <th class="px-6 py-3">寸法(mm)<br><span class="text-xs font-normal">LxWxH</span></th>
+                                <th class="px-6 py-3">3辺合計<br><span class="text-xs font-normal">(cm換算)</span></th>
+                                <th class="px-6 py-3">容積<br><span class="text-xs font-normal">(L)</span></th>
+                                <th class="px-6 py-3">現在サイズ<br><span class="text-xs font-normal">運賃区分</span></th>
+                                <th class="px-6 py-3">判定・コメント</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody" class="divide-y divide-gray-100">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const CARRIER_SIZES = [60, 80, 100, 120, 140, 160];
+        const THRESHOLD_CM = 4; // How many cm over the limit is considered "wasteful"? (e.g., 82cm is wasteful)
+
+        let chartInstance = null;
+
+        // --- Sample Data Generator ---
+        function loadSampleData() {
+            const sampleData = `name,length,width,height
+Box-A,250,200,140
+Box-B,310,220,150
+Box-C,300,210,100
+Box-Dangerous,350,250,210
+Box-E,450,320,200
+Box-F,460,330,220
+Box-Waste,410,310,290
+Box-Large,500,400,300
+Box-Slim,600,400,100
+Box-Just,390,290,110`;
+            processData(Papa.parse(sampleData, { header: true }).data);
+        }
+
+        // --- CSV Handler ---
+        document.getElementById('csvInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processData(results.data);
+                }
+            });
+        });
+
+        // --- Core Logic ---
+        function processData(rawData) {
+            // Normalize and calculate metrics
+            const boxes = rawData.map(row => {
+                const l = parseFloat(row.length || row.長さ || 0);
+                const w = parseFloat(row.width || row.幅 || 0);
+                const h = parseFloat(row.height || row.高さ || 0);
+                const name = row.name || row.名称 || row.箱名 || "Unknown";
+
+                if (l === 0) return null; // Skip invalid
+
+                // Calculations
+                const sumMm = l + w + h;
+                const sumCm = Math.ceil(sumMm / 10); // Round up to nearest cm first usually? keeping simple
+                const sumCmRaw = sumMm / 10;
+                const volumeL = (l * w * h) / 1000000; // mm3 to Liters
+
+                // Determine Size Class
+                let currentSize = 180; // Default max
+                for (let size of CARRIER_SIZES) {
+                    if (sumCmRaw <= size) {
+                        currentSize = size;
+                        break;
+                    }
+                }
+                
+                // Analyze Inefficiency
+                // Find the previous size bracket. e.g., for 82cm, prev is 80.
+                let isInefficient = false;
+                let diff = 0;
+                let targetSize = 0;
+
+                for (let i = 0; i < CARRIER_SIZES.length; i++) {
+                    const size = CARRIER_SIZES[i];
+                    if (sumCmRaw > size && sumCmRaw <= size + THRESHOLD_CM) {
+                        isInefficient = true;
+                        diff = (sumCmRaw - size).toFixed(1);
+                        targetSize = size;
+                        break;
+                    }
+                }
+
+                return {
+                    name, l, w, h,
+                    sumCm: sumCmRaw,
+                    volumeL: volumeL.toFixed(2),
+                    currentSize,
+                    isInefficient,
+                    diff,
+                    targetSize
+                };
+            }).filter(item => item !== null);
+
+            updateDashboard(boxes);
+        }
+
+        // --- UI Updates ---
+        function updateDashboard(boxes) {
+            document.getElementById('dashboard').classList.remove('hidden');
+            
+            // KPI Cards
+            document.getElementById('totalBoxes').innerText = boxes.length + " 種類";
+            const badBoxes = boxes.filter(b => b.isInefficient);
+            document.getElementById('inefficientBoxes').innerText = badBoxes.length + " 種類";
+
+            // Render Chart
+            renderChart(boxes);
+
+            // Render Table
+            renderTable(boxes);
+        }
+
+        function renderTable(boxes) {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+
+            boxes.forEach(box => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+                
+                let statusHtml = '<span class="px-2 py-1 text-green-700 bg-green-100 rounded text-xs">適正範囲</span>';
+                if (box.isInefficient) {
+                    statusHtml = `<span class="px-2 py-1 text-red-700 bg-red-100 rounded text-xs font-bold">要改善: +${box.diff}cm</span> <br><span class="text-xs text-gray-500">あと${box.diff}cm削減で${box.targetSize}サイズ</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-gray-900">${box.name}</td>
+                    <td class="px-6 py-4 text-gray-500">${box.l} x ${box.w} x ${box.h}</td>
+                    <td class="px-6 py-4 text-gray-900 font-bold">${box.sumCm.toFixed(1)} cm</td>
+                    <td class="px-6 py-4 text-gray-500">${box.volumeL} L</td>
+                    <td class="px-6 py-4 text-blue-600 font-bold">${box.currentSize > 160 ? 'Over' : box.currentSize}サイズ</td>
+                    <td class="px-6 py-4">${statusHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChart(boxes) {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            if (chartInstance) chartInstance.destroy();
+
+            // Prepare Data for Chart.js
+            const dataPoints = boxes.map(box => ({
+                x: box.sumCm,
+                y: box.volumeL,
+                name: box.name,
+                isInefficient: box.isInefficient
+            }));
+
+            // Annotations (Vertical Lines for Sizes)
+            const annotations = {};
+            CARRIER_SIZES.forEach((size, index) => {
+                annotations['line' + size] = {
+                    type: 'line',
+                    xMin: size,
+                    xMax: size,
+                    borderColor: 'rgba(100, 116, 139, 0.5)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    label: {
+                        display: true,
+                        content: size + 'サイズ',
+                        position: 'start',
+                        backgroundColor: 'rgba(100, 116, 139, 0.8)',
+                        color: 'white',
+                        font: { size: 10 }
+                    }
+                };
+            });
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '通常ボックス',
+                        data: dataPoints.filter(d => !d.isInefficient),
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    },
+                    {
+                        label: '要改善（サイズ境界超過）',
+                        data: dataPoints.filter(d => d.isInefficient),
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)', // Red
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        pointRadius: 8,
+                        pointHoverRadius: 10,
+                        pointStyle: 'triangle'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: '3辺合計 (cm) - 運賃基準' },
+                            min: 40,
+                            max: 180
+                        },
+                        y: {
+                            title: { display: true, text: '容積 (L) - 収納力' },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `${point.name}: 3辺${point.x.toFixed(1)}cm / ${point.y}L`;
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: annotations
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
