@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LINE txt → 診断PDF（商品テンプレ）</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --border:#1f2937;
+      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap{ max-width:980px; margin:0 auto; padding:22px; }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px; }
+    h1{ margin:0 0 10px; font-size:18px; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:820px){ .row{ grid-template-columns:1fr; } }
+    label{ display:block; font-size:12px; color:var(--muted); margin:12px 0 6px; }
+    input, textarea, select{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
+      background:#0b1020; color:var(--ink); outline:none;
+    }
+    textarea{ min-height:110px; resize:vertical; }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 14px; border-radius:12px; border:1px solid var(--border);
+      background:rgba(96,165,250,.18); color:var(--ink); cursor:pointer; font-weight:700;
+    }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .hint{ color:var(--muted); font-size:12px; line-height:1.55; margin-top:10px; }
+    .log{ white-space:pre-wrap; background:#050814; border:1px solid var(--border); border-radius:12px; padding:10px; margin-top:12px; font-size:12px; color:#cbd5e1; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; font-size:12px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>LINE履歴（.txt）→ 診断PDF（商品テンプレ 5ページ）</h1>
+
+      <div class="row">
+        <div>
+          <label>1) LINE履歴 .txt を選択</label>
+          <input id="file" type="file" accept=".txt,text/plain" />
+        </div>
+        <div>
+          <label>2) Cloudflare Worker URL（/generate）</label>
+          <input id="workerUrl" type="url" placeholder="https://xxx.workers.dev/generate" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>3) 解析に使うLLMエンドポイント（任意）</label>
+          <input id="llmEndpoint" type="url" placeholder="https://api.openai.com/v1/chat/completions 等（Worker側Secretで呼び出し）" />
+        </div>
+        <div>
+          <label>モデル名（任意）</label>
+          <input id="model" type="text" placeholder="gpt-4.1-mini 等 / 空ならWorker側デフォルト" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>解析モード</label>
+          <select id="mode">
+            <option value="analyze_and_pdf">解析して商品テンプレPDF</option>
+            <option value="raw_to_pdf">解析なしで商品テンプレPDF（原文整形中心）</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:10px;">
+          <div class="pill">✅ フロントにAPIキー不要（Worker Secret）</div>
+        </div>
+      </div>
+
+      <label>補足（任意）</label>
+      <textarea id="notes" placeholder="例：交際前までを対象。告白判断は断定せず、次の一文案は必ず2種類（安全/踏み込む）で。"></textarea>
+
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="runBtn">PDFを生成してダウンロード</button>
+        <button class="btn" id="sampleBtn" type="button">サンプルで試す</button>
+      </div>
+
+      <div class="hint">
+        - 「解析してPDF」は LLMエンドポイントを入れた時だけ解析します。空なら解析なし扱い。<br>
+        - 本テンプレは 5ページ固定（1:価値確定 / 2:納得 / 3:詰まり / 4:処方 / 5:補足）です。<br>
+        - 原文は最終ページに「抜粋」で入ります（全文は入れない設計）。
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (s) => { $("log").textContent = String(s ?? ""); };
+
+    function downloadBlob(blob, filename){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    }
+
+    function nowStamp(){
+      const d = new Date();
+      const pad = (n)=>String(n).padStart(2,"0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    }
+
+    async function runWithText(text){
+      const workerUrl = $("workerUrl").value.trim();
+      if(!workerUrl) throw new Error("Worker URL を入力してください。");
+
+      const payload = {
+        mode: $("mode").value,
+        llmEndpoint: $("llmEndpoint").value.trim() || null,
+        model: $("model").value.trim() || null,
+        notes: $("notes").value.trim() || null,
+        lineText: text
+      };
+
+      log("送信中…");
+      $("runBtn").disabled = true;
+
+      const res = await fetch(workerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if(!res.ok){
+        const msg = await res.text().catch(()=>"(no body)");
+        throw new Error(`Worker error: ${res.status} ${res.statusText}\n${msg}`);
+      }
+
+      const ct = res.headers.get("content-type") || "";
+      if(!ct.includes("application/pdf")){
+        const msg = await res.text().catch(()=>"(no body)");
+        throw new Error(`PDFではないレスポンスです: ${ct}\n${msg}`);
+      }
+
+      const blob = await res.blob();
+      downloadBlob(blob, `line_report_${nowStamp()}.pdf`);
+      log("完了：PDFをダウンロードしました。");
+    }
+
+    $("runBtn").addEventListener("click", async ()=>{
+      try{
+        const f = $("file").files?.[0];
+        if(!f) throw new Error(".txtファイルを選択してください。");
+        const text = await f.text();
+        await runWithText(text);
+      }catch(e){
+        log(e?.message || e);
+      }finally{
+        $("runBtn").disabled = false;
+      }
+    });
+
+    $("sampleBtn").addEventListener("click", async ()=>{
+      try{
+        const sample = [
+          "2025/12/01(月)",
+          "20:01 A: 今日はありがとう！めちゃ楽しかった",
+          "20:02 B: こちらこそ😊また会いたいな",
+          "20:05 A: 次いつ空いてる？",
+          "20:06 B: 週末なら空いてる！",
+          "2025/12/02(火)",
+          "09:10 A: 昨日も思ったけど一緒にいると落ち着くね",
+          "09:12 B: 嬉しい☺️ 私もだよ"
+        ].join("\n");
+        await runWithText(sample);
+      }catch(e){
+        log(e?.message || e);
+      }
+    });
+  </script>
+</body>
+</html>
