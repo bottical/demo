@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LINE txt → 診断PDF（商品テンプレ）</title>
+  <title>LINE txt → 診断PDF（解析必須・GPT固定）</title>
   <style>
     :root{
       --bg:#0b1220; --card:#0f172a; --ink:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --border:#1f2937;
-      --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
     }
     *{ box-sizing:border-box; }
     body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif; background:var(--bg); color:var(--ink); }
@@ -17,7 +16,7 @@
     .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:820px){ .row{ grid-template-columns:1fr; } }
     label{ display:block; font-size:12px; color:var(--muted); margin:12px 0 6px; }
-    input, textarea, select{
+    input, textarea{
       width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
       background:#0b1020; color:var(--ink); outline:none;
     }
@@ -36,7 +35,7 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>LINE履歴（.txt）→ 診断PDF（商品テンプレ 5ページ）</h1>
+      <h1>LINE履歴（.txt）→ 診断PDF（解析必須 / GPT固定）</h1>
 
       <div class="row">
         <div>
@@ -49,42 +48,19 @@
         </div>
       </div>
 
-      <div class="row">
-        <div>
-          <label>3) 解析に使うLLMエンドポイント（任意）</label>
-          <input id="llmEndpoint" type="url" placeholder="https://api.openai.com/v1/chat/completions 等（Worker側Secretで呼び出し）" />
-        </div>
-        <div>
-          <label>モデル名（任意）</label>
-          <input id="model" type="text" placeholder="gpt-4.1-mini 等 / 空ならWorker側デフォルト" />
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>解析モード</label>
-          <select id="mode">
-            <option value="analyze_and_pdf">解析して商品テンプレPDF</option>
-            <option value="raw_to_pdf">解析なしで商品テンプレPDF（原文整形中心）</option>
-          </select>
-        </div>
-        <div style="display:flex; align-items:flex-end; gap:10px;">
-          <div class="pill">✅ フロントにAPIキー不要（Worker Secret）</div>
-        </div>
-      </div>
-
       <label>補足（任意）</label>
-      <textarea id="notes" placeholder="例：交際前までを対象。告白判断は断定せず、次の一文案は必ず2種類（安全/踏み込む）で。"></textarea>
+      <textarea id="notes" placeholder="例：交際前までを対象。断定は避け、次の一文案は必ず2種類（安全/踏み込む）で。"></textarea>
 
       <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn" id="runBtn">PDFを生成してダウンロード</button>
         <button class="btn" id="sampleBtn" type="button">サンプルで試す</button>
+        <div class="pill">✅ 解析必須 / GPT固定 / APIキー不要</div>
       </div>
 
       <div class="hint">
-        - 「解析してPDF」は LLMエンドポイントを入れた時だけ解析します。空なら解析なし扱い。<br>
-        - 本テンプレは 5ページ固定（1:価値確定 / 2:納得 / 3:詰まり / 4:処方 / 5:補足）です。<br>
-        - 原文は最終ページに「抜粋」で入ります（全文は入れない設計）。
+        - 本ツールは<strong>必ず解析を行います</strong>（テンプレのみのPDFは生成しません）<br>
+        - 解析には GPT を使用します（エンドポイントは固定）<br>
+        - Worker URL はブラウザに記憶されます
       </div>
 
       <div class="log" id="log"></div>
@@ -94,6 +70,17 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const log = (s) => { $("log").textContent = String(s ?? ""); };
+
+    const LLM_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+    const MODEL = "gpt-4.1-mini";
+    const STORAGE_KEY = "line_report_worker_url";
+
+    function saveWorkerUrl(url){
+      localStorage.setItem(STORAGE_KEY, url);
+    }
+    function loadWorkerUrl(){
+      return localStorage.getItem(STORAGE_KEY) || "";
+    }
 
     function downloadBlob(blob, filename){
       const url = URL.createObjectURL(blob);
@@ -116,15 +103,22 @@
       const workerUrl = $("workerUrl").value.trim();
       if(!workerUrl) throw new Error("Worker URL を入力してください。");
 
+      saveWorkerUrl(workerUrl);
+
+      // ノイズ最低限圧縮
+      const cleaned = text
+        .replace(/\[(写真|スタンプ|ファイル|通話|動画)\].*/g, "[メディア]")
+        .replace(/\n{3,}/g, "\n\n");
+
       const payload = {
-        mode: $("mode").value,
-        llmEndpoint: $("llmEndpoint").value.trim() || null,
-        model: $("model").value.trim() || null,
+        mode: "analyze_and_pdf",
+        llmEndpoint: LLM_ENDPOINT,
+        model: MODEL,
         notes: $("notes").value.trim() || null,
-        lineText: text
+        lineText: cleaned
       };
 
-      log("送信中…");
+      log("解析・PDF生成中…");
       $("runBtn").disabled = true;
 
       const res = await fetch(workerUrl, {
@@ -135,7 +129,7 @@
 
       if(!res.ok){
         const msg = await res.text().catch(()=>"(no body)");
-        throw new Error(`Worker error: ${res.status} ${res.statusText}\n${msg}`);
+        throw new Error(`Worker error: ${res.status}\n${msg}`);
       }
 
       const ct = res.headers.get("content-type") || "";
@@ -178,6 +172,11 @@
       }catch(e){
         log(e?.message || e);
       }
+    });
+
+    // 初期化：Worker URL 復元
+    window.addEventListener("DOMContentLoaded", ()=>{
+      $("workerUrl").value = loadWorkerUrl();
     });
   </script>
 </body>
