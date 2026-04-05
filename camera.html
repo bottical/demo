@@ -1,169 +1,499 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>カメラ制御とバーコード録画</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ピッキング照合 PoC</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --panel2:#1f2937;
+      --line:#334155;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --ok:#16a34a;
+      --ng:#dc2626;
+      --warn:#d97706;
+      --btn:#2563eb;
+      --btnText:#fff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+    }
+    .wrap{
+      max-width:860px;
+      margin:0 auto;
+      padding:16px;
+      display:grid;
+      gap:16px;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+    }
+    h1{
+      margin:0 0 8px;
+      font-size:22px;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+    .target{
+      display:grid;
+      gap:10px;
+    }
+    .row{
+      display:grid;
+      grid-template-columns:120px 1fr;
+      gap:10px;
+      align-items:center;
+    }
+    .label{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:700;
+    }
+    .value{
+      font-size:20px;
+      font-weight:800;
+      word-break:break-all;
+    }
+    .qty{
+      font-size:32px;
+      font-weight:900;
+      line-height:1;
+    }
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:14px;
+      font-weight:800;
+      width:fit-content;
+      border:1px solid transparent;
+    }
+    .status.pending{
+      background:rgba(217,119,6,.12);
+      color:#fbbf24;
+      border-color:rgba(217,119,6,.4);
+    }
+    .status.done{
+      background:rgba(22,163,74,.12);
+      color:#4ade80;
+      border-color:rgba(22,163,74,.4);
+    }
+    .status.error{
+      background:rgba(220,38,38,.12);
+      color:#f87171;
+      border-color:rgba(220,38,38,.4);
+    }
+    .controls{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    button{
+      appearance:none;
+      border:none;
+      background:var(--btn);
+      color:var(--btnText);
+      padding:12px 16px;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    button.secondary{
+      background:#374151;
+    }
+    button.danger{
+      background:#991b1b;
+    }
+    button:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+    }
+    .camera-shell{
+      position:relative;
+      background:#000;
+      border-radius:16px;
+      overflow:hidden;
+      border:1px solid var(--line);
+      aspect-ratio:3 / 4;
+      width:100%;
+      max-height:70vh;
+    }
+    video{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      transform:scaleX(-1); /* インカメ想定 */
+    }
+    .guide{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      display:grid;
+      place-items:center;
+    }
+    .guide-box{
+      width:min(88%, 520px);
+      height:120px;
+      border:3px solid rgba(255,255,255,.95);
+      border-radius:16px;
+      box-shadow:0 0 0 9999px rgba(0,0,0,.25);
+      position:relative;
+    }
+    .guide-box::before{
+      content:"1Dバーコードを横向きでこの枠に合わせてください";
+      position:absolute;
+      left:50%;
+      top:-38px;
+      transform:translateX(-50%);
+      background:rgba(15,23,42,.9);
+      color:#fff;
+      font-size:12px;
+      font-weight:700;
+      padding:6px 10px;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .scan-info{
+      display:grid;
+      gap:8px;
+      font-size:14px;
+    }
+    .mono{
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight:800;
+      word-break:break-all;
+    }
+    .log{
+      background:var(--panel2);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px;
+      min-height:60px;
+      color:#cbd5e1;
+      line-height:1.5;
+      font-size:14px;
+      white-space:pre-wrap;
+    }
+    .okflash{
+      outline:4px solid var(--ok);
+      box-shadow:0 0 0 8px rgba(22,163,74,.2);
+    }
+    .ngflash{
+      outline:4px solid var(--ng);
+      box-shadow:0 0 0 8px rgba(220,38,38,.2);
+    }
+    input[type="text"], input[type="number"]{
+      width:100%;
+      background:#0b1220;
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:10px;
+      padding:10px 12px;
+      font-size:16px;
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:640px){
+      .row{ grid-template-columns:1fr; }
+      .grid2{ grid-template-columns:1fr; }
+      .value{ font-size:18px; }
+      .qty{ font-size:28px; }
+    }
+  </style>
 </head>
 <body>
-  <h1>カメラ制御とバーコード録画</h1>
-  <form id="barcode-form">
-    <label for="barcode">バーコードを入力してください:</label>
-    <input type="text" id="barcode" name="barcode" required>
-    <button type="submit">録画開始</button>
-  </form>
-  <div id="videos-container"></div>
+  <div class="wrap">
+    <div class="card">
+      <h1>ピッキング照合 PoC（インカメ / 1Dバーコード）</h1>
+      <div class="sub">
+        可読性確認用の最小構成です。<br>
+        読み取ったバーコードが対象JANと一致したら「完了」にします。<br>
+        まずは実機で「そもそも読めるか」を見るための試験用で、本番連携はしていません。
+      </div>
+    </div>
 
+    <div class="card target">
+      <div class="grid2">
+        <div>
+          <div class="label">対象JAN</div>
+          <input id="targetJanInput" type="text" value="4901234567894" inputmode="numeric" />
+        </div>
+        <div>
+          <div class="label">数量表示</div>
+          <input id="targetQtyInput" type="number" value="2" min="1" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">現在の対象</div>
+        <div class="value mono" id="targetJanView">4901234567894</div>
+      </div>
+      <div class="row">
+        <div class="label">数量</div>
+        <div class="qty" id="targetQtyView">2</div>
+      </div>
+      <div class="row">
+        <div class="label">状態</div>
+        <div>
+          <span id="pickStatus" class="status pending">未完了</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button id="startBtn">カメラ開始</button>
+        <button id="stopBtn" class="secondary" disabled>停止</button>
+        <button id="resetBtn" class="danger">完了状態をリセット</button>
+      </div>
+    </div>
+
+    <div class="camera-shell" id="cameraShell">
+      <video id="video" playsinline muted></video>
+      <div class="guide">
+        <div class="guide-box"></div>
+      </div>
+    </div>
+
+    <div class="card scan-info">
+      <div><span class="label">最終読取値</span></div>
+      <div id="lastScan" class="mono">-</div>
+
+      <div><span class="label">メッセージ</span></div>
+      <div id="log" class="log">「カメラ開始」を押してください。</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
   <script>
-    const videosContainer = document.getElementById('videos-container');
-    const barcodeForm = document.getElementById('barcode-form');
-    let cameras = [];
-    let recorders = {};
+    const el = {
+      targetJanInput: document.getElementById('targetJanInput'),
+      targetQtyInput: document.getElementById('targetQtyInput'),
+      targetJanView: document.getElementById('targetJanView'),
+      targetQtyView: document.getElementById('targetQtyView'),
+      pickStatus: document.getElementById('pickStatus'),
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      video: document.getElementById('video'),
+      lastScan: document.getElementById('lastScan'),
+      log: document.getElementById('log'),
+      cameraShell: document.getElementById('cameraShell'),
+    };
 
-    // カメラ初期化
-    async function initializeCameras() {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter(device => device.kind === 'videoinput');
+    let codeReader = null;
+    let controls = null;
+    let isRunning = false;
+    let lastAcceptedText = '';
+    let lastAcceptedAt = 0;
+    let completed = false;
 
-      for (const [index, device] of videoInputs.entries()) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: device.deviceId }
-        });
+    const ACCEPT_INTERVAL_MS = 1200;
 
-        // カメラ情報を保存
-        cameras.push({ id: `camera-${index}`, stream, deviceName: device.label });
+    function normalizeBarcode(text) {
+      return String(text || '')
+        .trim()
+        .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/\s+/g, '');
+    }
 
-        // コンテナ作成
-        const container = document.createElement('div');
-        container.style.marginBottom = '20px';
-        container.style.border = '1px solid #ddd';
-        container.style.padding = '10px';
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
+    function getTargetJan() {
+      return normalizeBarcode(el.targetJanInput.value);
+    }
 
-        // カメラ名表示
-        const label = document.createElement('p');
-        label.textContent = `Camera ${index + 1}: ${device.label || 'カメラ名不明'}`;
-        container.appendChild(label);
+    function setLog(message) {
+      el.log.textContent = message;
+    }
 
-        // 動画要素作成
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.autoplay = true;
-        video.muted = true;
-        video.style.width = '300px';
-        video.style.display = 'block';
-        video.setAttribute('data-camera-id', `camera-${index}`);
-        container.appendChild(video);
+    function flash(type) {
+      el.cameraShell.classList.remove('okflash', 'ngflash');
+      void el.cameraShell.offsetWidth;
+      el.cameraShell.classList.add(type === 'ok' ? 'okflash' : 'ngflash');
+      setTimeout(() => {
+        el.cameraShell.classList.remove('okflash', 'ngflash');
+      }, 500);
+    }
 
-        // 映像オン/オフボタン作成
-        const toggleButton = document.createElement('button');
-        toggleButton.textContent = '映像をオフ';
-        toggleButton.style.marginRight = '10px';
-        toggleButton.onclick = () => {
-          if (video.style.display === 'none') {
-            video.style.display = 'block';
-            toggleButton.textContent = '映像をオフ';
-          } else {
-            video.style.display = 'none';
-            toggleButton.textContent = '映像をオン';
+    function setCompleted(done) {
+      completed = done;
+      if (done) {
+        el.pickStatus.textContent = '完了';
+        el.pickStatus.className = 'status done';
+      } else {
+        el.pickStatus.textContent = '未完了';
+        el.pickStatus.className = 'status pending';
+      }
+    }
+
+    function syncTargetView() {
+      el.targetJanView.textContent = getTargetJan() || '-';
+      el.targetQtyView.textContent = String(el.targetQtyInput.value || '1');
+    }
+
+    async function startCamera() {
+      if (isRunning) return;
+
+      if (!window.ZXingBrowser || !window.ZXingBrowser.BrowserMultiFormatReader) {
+        setLog('ZXingライブラリの読込に失敗しました。ネットワーク状態をご確認ください。');
+        return;
+      }
+
+      try {
+        codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+
+        const hints = new Map();
+        const BF = ZXingBrowser.BarcodeFormat;
+        hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
+          BF.EAN_13,
+          BF.EAN_8,
+          BF.CODE_128,
+          BF.CODE_39,
+          BF.ITF,
+          BF.UPC_A,
+          BF.UPC_E
+        ]);
+
+        const constraints = {
+          audio: false,
+          video: {
+            facingMode: 'user',   // インカメ前提
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           }
         };
-        container.appendChild(toggleButton);
 
-        // 残り時間表示
-        const timer = document.createElement('p');
-        timer.textContent = '残り時間: - 秒';
-        timer.style.marginLeft = '20px';
-        timer.style.fontWeight = 'bold';
-        timer.setAttribute('data-timer-id', `timer-${index}`);
-        container.appendChild(timer);
+        setLog('カメラを起動しています…');
+        controls = await codeReader.decodeFromConstraints(
+          constraints,
+          el.video,
+          (result, error) => {
+            if (!result) return;
 
-        videosContainer.appendChild(container);
-      }
-    }
+            const rawText = result.getText ? result.getText() : String(result.text || '');
+            const scanned = normalizeBarcode(rawText);
+            const target = getTargetJan();
+            const now = Date.now();
 
-    // 録画開始処理
-    function startRecording(cameraId, barcode) {
-      const camera = cameras.find(c => c.id === cameraId);
-      if (!camera) {
-        alert(`カメラID ${cameraId} が見つかりません`);
-        return;
-      }
+            if (!scanned) return;
+            if (completed) return;
 
-      // MediaRecorderの初期化
-      const recorder = new MediaRecorder(camera.stream);
-      recorders[cameraId] = recorder;
+            if (scanned === lastAcceptedText && now - lastAcceptedAt < ACCEPT_INTERVAL_MS) {
+              return;
+            }
 
-      // 録画時間設定 (例: 5秒)
-      const recordingDuration = 5; // 秒
-      let remainingTime = recordingDuration;
+            el.lastScan.textContent = scanned;
+            lastAcceptedText = scanned;
+            lastAcceptedAt = now;
 
-      // タイマー要素を取得
-      const timerElement = document.querySelector(`[data-timer-id="timer-${cameraId.split('-')[1]}"]`);
-      if (timerElement) {
-        const interval = setInterval(() => {
-          timerElement.textContent = `残り時間: ${remainingTime} 秒`;
-          remainingTime--;
+            if (scanned === target) {
+              setCompleted(true);
+              flash('ok');
+              setLog('一致しました。完了扱いにしました。');
+              try {
+                if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+              } catch (_) {}
+            } else {
+              el.pickStatus.textContent = '不一致';
+              el.pickStatus.className = 'status error';
+              flash('ng');
+              setLog('不一致です。対象JANではありません。');
 
-          if (remainingTime < 0) {
-            clearInterval(interval);
+              setTimeout(() => {
+                if (!completed) {
+                  el.pickStatus.textContent = '未完了';
+                  el.pickStatus.className = 'status pending';
+                }
+              }, 900);
+            }
           }
-        }, 1000);
+        );
+
+        isRunning = true;
+        el.startBtn.disabled = true;
+        el.stopBtn.disabled = false;
+        setLog('カメラ起動完了。バーコードを枠に水平に合わせてください。');
+      } catch (err) {
+        console.error(err);
+        setLog(
+          'カメラ起動に失敗しました。\n' +
+          '・HTTPSで開いているか\n' +
+          '・カメラ権限を許可したか\n' +
+          '・端末/ブラウザがインカメ読取に対応しているか\n' +
+          'を確認してください。'
+        );
       }
-
-      const chunks = []; // 録画データを保持
-      recorder.ondataavailable = event => {
-        chunks.push(event.data);
-      };
-
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-
-        // 自動ダウンロード処理
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `recording-${barcode}-${cameraId}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove(); // ダウンロード後にリンク要素を削除
-        URL.revokeObjectURL(url); // URL解放
-      };
-
-      recorder.start();
-
-      // 録画停止タイマー
-      setTimeout(() => {
-        recorder.stop();
-      }, recordingDuration * 1000); // 秒からミリ秒へ変換
     }
 
-    // フォーム送信時の処理
-    barcodeForm.addEventListener('submit', event => {
-      event.preventDefault();
-      const barcode = document.getElementById('barcode').value.trim();
+    async function stopCamera() {
+      try {
+        if (controls && typeof controls.stop === 'function') {
+          controls.stop();
+        }
+        if (codeReader && typeof codeReader.reset === 'function') {
+          codeReader.reset();
+        }
 
-      if (!barcode) {
-        alert('バーコードを入力してください');
-        return;
+        const stream = el.video.srcObject;
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        el.video.srcObject = null;
+      } catch (err) {
+        console.error(err);
+      } finally {
+        isRunning = false;
+        el.startBtn.disabled = false;
+        el.stopBtn.disabled = true;
+        setLog('カメラを停止しました。');
       }
+    }
 
-      // バーコードの下4桁を取得
-      const last4Digits = barcode.slice(-4);
-      const cameraIndex = parseInt(last4Digits) - 1; // 下4桁が "0001" → camera-0
-
-      if (cameraIndex < 0 || cameraIndex >= cameras.length) {
-        alert(`バーコード ${last4Digits} に対応するカメラが見つかりません`);
-        return;
-      }
-
-      const cameraId = `camera-${cameraIndex}`;
-      startRecording(cameraId, barcode);
+    el.targetJanInput.addEventListener('input', () => {
+      syncTargetView();
+      setCompleted(false);
+      el.lastScan.textContent = '-';
+      setLog('対象JANを更新しました。');
     });
 
-    // 初期化
-    initializeCameras();
+    el.targetQtyInput.addEventListener('input', () => {
+      syncTargetView();
+    });
+
+    el.startBtn.addEventListener('click', startCamera);
+    el.stopBtn.addEventListener('click', stopCamera);
+    el.resetBtn.addEventListener('click', () => {
+      setCompleted(false);
+      el.lastScan.textContent = '-';
+      setLog('完了状態をリセットしました。');
+    });
+
+    window.addEventListener('beforeunload', () => {
+      stopCamera();
+    });
+
+    syncTargetView();
+    setCompleted(false);
   </script>
 </body>
 </html>
