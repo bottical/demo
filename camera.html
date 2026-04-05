@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ピッキング照合 PoC</title>
+  <title>ピッキング照合 PoC（BarcodeDetector版）</title>
   <style>
     :root{
       --bg:#0f172a;
@@ -14,7 +14,6 @@
       --muted:#94a3b8;
       --ok:#16a34a;
       --ng:#dc2626;
-      --warn:#d97706;
       --btn:#2563eb;
       --btnText:#fff;
     }
@@ -186,7 +185,7 @@
       border:1px solid var(--line);
       border-radius:12px;
       padding:12px;
-      min-height:72px;
+      min-height:88px;
       color:#cbd5e1;
       line-height:1.5;
       font-size:14px;
@@ -230,11 +229,11 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>ピッキング照合 PoC（起動確認版）</h1>
+      <h1>ピッキング照合 PoC（内蔵BarcodeDetector版）</h1>
       <div class="sub">
-        まずはカメラ起動可否の切り分けを優先した版です。<br>
-        カメラ起動時の制約を緩め、失敗時はエラー名とメッセージを表示します。<br>
-        HTTPS環境で開いてください。
+        外部CDNを使わない版です。<br>
+        端末ブラウザに BarcodeDetector があれば、そのまま読取を試せます。<br>
+        HTTPSで開いてください。
       </div>
     </div>
 
@@ -290,7 +289,6 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
   <script>
     const el = {
       targetJanInput: document.getElementById('targetJanInput'),
@@ -307,12 +305,13 @@
       cameraShell: document.getElementById('cameraShell'),
     };
 
-    let codeReader = null;
-    let controls = null;
+    let stream = null;
+    let detector = null;
     let isRunning = false;
+    let rafId = null;
+    let completed = false;
     let lastAcceptedText = '';
     let lastAcceptedAt = 0;
-    let completed = false;
 
     const ACCEPT_INTERVAL_MS = 1200;
 
@@ -356,78 +355,95 @@
       el.targetQtyView.textContent = String(el.targetQtyInput.value || '1');
     }
 
-    function getFriendlyCameraError(err) {
+    async function buildDetector() {
+      if (!('BarcodeDetector' in window)) {
+        throw new Error('BarcodeDetector unsupported');
+      }
+
+      let formats = [];
+      try {
+        formats = await BarcodeDetector.getSupportedFormats();
+      } catch (_) {}
+
+      const preferred = [
+        'ean_13',
+        'ean_8',
+        'upc_a',
+        'upc_e',
+        'code_128',
+        'code_39',
+        'itf'
+      ];
+
+      const usable = preferred.filter(f => formats.length === 0 || formats.includes(f));
+      if (usable.length > 0) {
+        return new BarcodeDetector({ formats: usable });
+      }
+      return new BarcodeDetector();
+    }
+
+    function getFriendlyError(err) {
       const name = err?.name || '-';
       const message = err?.message || '-';
 
-      let hint = '';
-      if (name === 'NotAllowedError') {
-        hint = 'カメラ権限が拒否されています。ブラウザのサイト設定でカメラを許可してください。';
-      } else if (name === 'NotFoundError') {
-        hint = '使用可能なカメラが見つかりません。端末にカメラがあるか確認してください。';
-      } else if (name === 'NotReadableError') {
-        hint = '他のアプリがカメラを使用中の可能性があります。カメラアプリや他タブを閉じてください。';
-      } else if (name === 'OverconstrainedError') {
-        hint = 'カメラ条件が端末に合っていません。';
-      } else if (name === 'TypeError') {
-        hint = 'HTTPSではない、またはブラウザ非対応の可能性があります。';
-      } else if (String(message).includes('ZXingBrowser')) {
-        hint = '外部ライブラリの読込に失敗している可能性があります。通信環境をご確認ください。';
-      } else {
-        hint = 'ブラウザ・権限・HTTPS・通信環境をご確認ください。';
+      if (message === 'BarcodeDetector unsupported') {
+        return {
+          name: 'Unsupported',
+          message,
+          hint: 'このブラウザは内蔵バーコード読取に未対応です。別ブラウザまたは別端末で確認してください。'
+        };
       }
-
-      return { name, message, hint };
+      if (name === 'NotAllowedError') {
+        return {
+          name, message,
+          hint: 'カメラ権限が拒否されています。サイト設定でカメラを許可してください。'
+        };
+      }
+      if (name === 'NotFoundError') {
+        return {
+          name, message,
+          hint: '使用可能なカメラが見つかりません。'
+        };
+      }
+      if (name === 'NotReadableError') {
+        return {
+          name, message,
+          hint: '他アプリがカメラを使用中の可能性があります。'
+        };
+      }
+      if (name === 'TypeError') {
+        return {
+          name, message,
+          hint: 'HTTPSではない、またはカメラAPI非対応の可能性があります。'
+        };
+      }
+      return {
+        name, message,
+        hint: 'ブラウザ・権限・HTTPS を確認してください。'
+      };
     }
 
-    async function startCamera() {
-      if (isRunning) return;
-
-      if (!window.ZXingBrowser || !window.ZXingBrowser.BrowserMultiFormatReader) {
-        const msg = 'ZXingライブラリの読込に失敗しました。CDNへ接続できていない可能性があります。';
-        alert(msg);
-        setLog(msg);
-        return;
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        const msg = 'このブラウザはカメラAPIに対応していません。';
-        alert(msg);
-        setLog(msg);
+    async function scanLoop() {
+      if (!isRunning || !detector || !el.video.videoWidth || !el.video.videoHeight) {
+        rafId = requestAnimationFrame(scanLoop);
         return;
       }
 
       try {
-        codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+        const codes = await detector.detect(el.video);
+        if (codes && codes.length > 0 && !completed) {
+          const raw = codes[0]?.rawValue || '';
+          const scanned = normalizeBarcode(raw);
+          const target = getTargetJan();
+          const now = Date.now();
 
-        const constraints = {
-          audio: false,
-          video: true
-        };
-
-        setLog('カメラを起動しています…');
-
-        controls = await codeReader.decodeFromConstraints(
-          constraints,
-          el.video,
-          (result, error) => {
-            if (!result) return;
-
-            const rawText = result.getText ? result.getText() : String(result.text || '');
-            const scanned = normalizeBarcode(rawText);
-            const target = getTargetJan();
-            const now = Date.now();
-
-            if (!scanned) return;
-            if (completed) return;
-
-            if (scanned === lastAcceptedText && now - lastAcceptedAt < ACCEPT_INTERVAL_MS) {
-              return;
-            }
-
-            el.lastScan.textContent = scanned;
+          if (
+            scanned &&
+            !(scanned === lastAcceptedText && now - lastAcceptedAt < ACCEPT_INTERVAL_MS)
+          ) {
             lastAcceptedText = scanned;
             lastAcceptedAt = now;
+            el.lastScan.textContent = scanned;
 
             if (scanned === target) {
               setCompleted(true);
@@ -441,7 +457,6 @@
               el.pickStatus.className = 'status error';
               flash('ng');
               setLog('不一致です。対象JANではありません。');
-
               setTimeout(() => {
                 if (!completed) {
                   el.pickStatus.textContent = '未完了';
@@ -450,48 +465,64 @@
               }, 900);
             }
           }
-        );
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      rafId = requestAnimationFrame(scanLoop);
+    }
+
+    async function startCamera() {
+      if (isRunning) return;
+
+      try {
+        detector = await buildDetector();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: true
+        });
+
+        el.video.srcObject = stream;
+        await el.video.play();
 
         isRunning = true;
         el.startBtn.disabled = true;
         el.stopBtn.disabled = false;
         setLog('カメラ起動完了。バーコードを枠に水平に合わせてください。');
+
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(scanLoop);
       } catch (err) {
         console.error(err);
-        const info = getFriendlyCameraError(err);
-        const fullMessage =
+        const info = getFriendlyError(err);
+        const message =
           'カメラ起動失敗\n' +
           'name: ' + info.name + '\n' +
           'message: ' + info.message + '\n\n' +
           info.hint;
-
-        alert(fullMessage);
-        setLog(fullMessage);
+        alert(message);
+        setLog(message);
       }
     }
 
     async function stopCamera() {
-      try {
-        if (controls && typeof controls.stop === 'function') {
-          controls.stop();
-        }
-        if (codeReader && typeof codeReader.reset === 'function') {
-          codeReader.reset();
-        }
-
-        const stream = el.video.srcObject;
-        if (stream && stream.getTracks) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        el.video.srcObject = null;
-      } catch (err) {
-        console.error(err);
-      } finally {
-        isRunning = false;
-        el.startBtn.disabled = false;
-        el.stopBtn.disabled = true;
-        setLog('カメラを停止しました。');
+      isRunning = false;
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
       }
+
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+
+      el.video.srcObject = null;
+      el.startBtn.disabled = false;
+      el.stopBtn.disabled = true;
+      setLog('カメラを停止しました。');
     }
 
     el.targetJanInput.addEventListener('input', () => {
