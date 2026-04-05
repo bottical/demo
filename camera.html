@@ -140,7 +140,6 @@
       height:100%;
       object-fit:cover;
       display:block;
-      transform:scaleX(-1); /* インカメ想定 */
     }
     .guide{
       position:absolute;
@@ -170,6 +169,7 @@
       padding:6px 10px;
       border-radius:999px;
       white-space:nowrap;
+      text-align:center;
     }
     .scan-info{
       display:grid;
@@ -186,7 +186,7 @@
       border:1px solid var(--line);
       border-radius:12px;
       padding:12px;
-      min-height:60px;
+      min-height:72px;
       color:#cbd5e1;
       line-height:1.5;
       font-size:14px;
@@ -219,17 +219,22 @@
       .grid2{ grid-template-columns:1fr; }
       .value{ font-size:18px; }
       .qty{ font-size:28px; }
+      .guide-box::before{
+        width:min(90vw, 260px);
+        white-space:normal;
+        line-height:1.4;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>ピッキング照合 PoC（インカメ / 1Dバーコード）</h1>
+      <h1>ピッキング照合 PoC（起動確認版）</h1>
       <div class="sub">
-        可読性確認用の最小構成です。<br>
-        読み取ったバーコードが対象JANと一致したら「完了」にします。<br>
-        まずは実機で「そもそも読めるか」を見るための試験用で、本番連携はしていません。
+        まずはカメラ起動可否の切り分けを優先した版です。<br>
+        カメラ起動時の制約を緩め、失敗時はエラー名とメッセージを表示します。<br>
+        HTTPS環境で開いてください。
       </div>
     </div>
 
@@ -270,7 +275,7 @@
     </div>
 
     <div class="camera-shell" id="cameraShell">
-      <video id="video" playsinline muted></video>
+      <video id="video" playsinline muted autoplay></video>
       <div class="guide">
         <div class="guide-box"></div>
       </div>
@@ -351,39 +356,57 @@
       el.targetQtyView.textContent = String(el.targetQtyInput.value || '1');
     }
 
+    function getFriendlyCameraError(err) {
+      const name = err?.name || '-';
+      const message = err?.message || '-';
+
+      let hint = '';
+      if (name === 'NotAllowedError') {
+        hint = 'カメラ権限が拒否されています。ブラウザのサイト設定でカメラを許可してください。';
+      } else if (name === 'NotFoundError') {
+        hint = '使用可能なカメラが見つかりません。端末にカメラがあるか確認してください。';
+      } else if (name === 'NotReadableError') {
+        hint = '他のアプリがカメラを使用中の可能性があります。カメラアプリや他タブを閉じてください。';
+      } else if (name === 'OverconstrainedError') {
+        hint = 'カメラ条件が端末に合っていません。';
+      } else if (name === 'TypeError') {
+        hint = 'HTTPSではない、またはブラウザ非対応の可能性があります。';
+      } else if (String(message).includes('ZXingBrowser')) {
+        hint = '外部ライブラリの読込に失敗している可能性があります。通信環境をご確認ください。';
+      } else {
+        hint = 'ブラウザ・権限・HTTPS・通信環境をご確認ください。';
+      }
+
+      return { name, message, hint };
+    }
+
     async function startCamera() {
       if (isRunning) return;
 
       if (!window.ZXingBrowser || !window.ZXingBrowser.BrowserMultiFormatReader) {
-        setLog('ZXingライブラリの読込に失敗しました。ネットワーク状態をご確認ください。');
+        const msg = 'ZXingライブラリの読込に失敗しました。CDNへ接続できていない可能性があります。';
+        alert(msg);
+        setLog(msg);
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const msg = 'このブラウザはカメラAPIに対応していません。';
+        alert(msg);
+        setLog(msg);
         return;
       }
 
       try {
         codeReader = new ZXingBrowser.BrowserMultiFormatReader();
 
-        const hints = new Map();
-        const BF = ZXingBrowser.BarcodeFormat;
-        hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
-          BF.EAN_13,
-          BF.EAN_8,
-          BF.CODE_128,
-          BF.CODE_39,
-          BF.ITF,
-          BF.UPC_A,
-          BF.UPC_E
-        ]);
-
         const constraints = {
           audio: false,
-          video: {
-            facingMode: 'user',   // インカメ前提
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
+          video: true
         };
 
         setLog('カメラを起動しています…');
+
         controls = await codeReader.decodeFromConstraints(
           constraints,
           el.video,
@@ -435,13 +458,15 @@
         setLog('カメラ起動完了。バーコードを枠に水平に合わせてください。');
       } catch (err) {
         console.error(err);
-        setLog(
-          'カメラ起動に失敗しました。\n' +
-          '・HTTPSで開いているか\n' +
-          '・カメラ権限を許可したか\n' +
-          '・端末/ブラウザがインカメ読取に対応しているか\n' +
-          'を確認してください。'
-        );
+        const info = getFriendlyCameraError(err);
+        const fullMessage =
+          'カメラ起動失敗\n' +
+          'name: ' + info.name + '\n' +
+          'message: ' + info.message + '\n\n' +
+          info.hint;
+
+        alert(fullMessage);
+        setLog(fullMessage);
       }
     }
 
