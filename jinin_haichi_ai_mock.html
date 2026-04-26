@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>人員配置AIサービス モック</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #d8e0ec;
+      --brand: #2563eb;
+      --brand-dark: #1d4ed8;
+      --good: #16a34a;
+      --warn: #f59e0b;
+      --bad: #dc2626;
+      --purple: #7c3aed;
+      --cyan: #0891b2;
+      --shadow: 0 14px 40px rgba(15, 23, 42, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 300px);
+      color: var(--ink);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .app {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(360px, .8fr);
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 20px;
+    }
+
+    .hero-main, .hero-side, .card {
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(216,224,236,.95);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-main {
+      padding: 26px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      right: -80px;
+      top: -90px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,.20), rgba(37,99,235,0));
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--brand);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      font-weight: 700;
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.12;
+      letter-spacing: -.04em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+      max-width: 860px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-weight: 800;
+      transition: .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      color: #fff;
+      background: var(--brand);
+      box-shadow: 0 8px 18px rgba(37, 99, 235, .25);
+    }
+
+    .btn-primary:hover { background: var(--brand-dark); transform: translateY(-1px); }
+
+    .btn-secondary {
+      color: var(--ink);
+      background: #eef2f7;
+      border: 1px solid var(--line);
+    }
+
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    .hero-side {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-box {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .status-box .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .status-box .value {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -.03em;
+    }
+
+    .status-box.good .value { color: var(--good); }
+    .status-box.warn .value { color: var(--warn); }
+    .status-box.bad .value { color: var(--bad); }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 420px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .card {
+      padding: 20px;
+    }
+
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      letter-spacing: -.02em;
+    }
+
+    .card p.section-note {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .control-panel {
+      position: sticky;
+      top: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 11px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+
+    .process-list, .line-list, .worker-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .item-title {
+      font-weight: 900;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 4px;
+    }
+
+    .delete {
+      border: 0;
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 10px;
+      padding: 6px 9px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    .dashboard {
+      display: grid;
+      gap: 20px;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .kpi {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .kpi .k-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .kpi .k-value {
+      margin-top: 8px;
+      font-size: 26px;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .kpi .k-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .recommendation {
+      border: 1px solid #bfdbfe;
+      background: linear-gradient(135deg, #eff6ff, #ffffff);
+      border-radius: 18px;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .recommendation h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .recommendation ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: #334155;
+      line-height: 1.7;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 900;
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+
+    .badge.high { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+    .badge.mid { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+    .badge.low { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+    .badge.info { color: #1d4ed8; background: #dbeafe; border-color: #bfdbfe; }
+
+    .line-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 14px;
+    }
+
+    .line-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      padding: 16px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .line-card h3 {
+      margin: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .process-flow {
+      display: grid;
+      gap: 8px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 72px;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 9px;
+      background: #f8fafc;
+    }
+
+    .flow-name {
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: var(--brand);
+      border-radius: inherit;
+      width: 50%;
+    }
+
+    .flow-num {
+      text-align: right;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .timeline-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+      background: #fff;
+    }
+
+    th, td {
+      border-bottom: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 900;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td:first-child, th:first-child {
+      text-align: left;
+      font-weight: 900;
+      background: #fbfdff;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+    }
+
+    th:first-child { z-index: 3; }
+
+    .cell {
+      display: grid;
+      gap: 4px;
+    }
+
+    .cell .need {
+      font-weight: 950;
+      font-size: 16px;
+    }
+
+    .cell .small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .over { background: #fff1f2; }
+    .tight { background: #fffbeb; }
+    .ok { background: #f0fdf4; }
+
+    .workers {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .worker {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 16px;
+      padding: 13px;
+    }
+
+    .worker-name {
+      font-weight: 950;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .skill-grid {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .skill {
+      display: grid;
+      grid-template-columns: 88px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .assets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .asset {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      padding: 16px;
+    }
+
+    .asset h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .asset ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #475569;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      line-height: 1.8;
+      margin: 14px 0 0;
+      font-size: 13px;
+    }
+
+    .muted-link {
+      color: var(--brand);
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 18px 0;
+    }
+
+    @media (max-width: 980px) {
+      .hero, .grid-2 {
+        grid-template-columns: 1fr;
+      }
+      .control-panel {
+        position: static;
+      }
+      .kpi-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 14px; }
+      .form-grid, .kpi-row {
+        grid-template-columns: 1fr;
+      }
+      .recommendation {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="hero-main">
+        <span class="eyebrow">人員配置AIサービス / Client Mock</span>
+        <h1>工程別の負荷・人員・完了見込みを、時間帯ごとに配置提案する</h1>
+        <p class="lead">
+          このモックは、クライアントに完成アウトプットのイメージを提示し、過去の作業アセット提供とPoC検証に進むためのたたき台です。
+          ライン・工程・作業者能力・自動包装機能力を変更すると、必要人数・ボトルネック・配置提案が即時に再計算されます。
+        </p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" onclick="applyRecommendation()">推奨配置を反映</button>
+          <button class="btn btn-secondary" onclick="resetDemo()">デモ初期値に戻す</button>
+          <button class="btn btn-secondary" onclick="scrollToAssets()">必要アセットを見る</button>
+        </div>
+      </div>
+
+      <aside class="hero-side">
+        <div class="status-box bad">
+          <div class="label">全体完了見込み</div>
+          <div class="value" id="overallEnd">18:10</div>
+          <div class="mini">目標完了 17:30 / 遅延リスクを自動判定</div>
+        </div>
+        <div class="status-box warn">
+          <div class="label">現在の主要ボトルネック</div>
+          <div class="value" id="bottleneckName">ピッキング</div>
+          <div class="mini" id="bottleneckNote">残作業に対して処理能力が不足</div>
+        </div>
+        <div class="status-box good">
+          <div class="label">推奨改善見込み</div>
+          <div class="value" id="improvementValue">-22分</div>
+          <div class="mini">作業者の工程別生産性を加味</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid grid-2">
+      <aside class="card control-panel">
+        <h2>モック操作パネル</h2>
+        <p class="section-note">工程・ライン・作業者を増減し、配置提案の見え方を確認できます。</p>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>作業日</label>
+            <input id="workDate" type="date" />
+          </div>
+          <div class="field">
+            <label>目標完了時刻</label>
+            <input id="targetTime" type="time" value="17:30" onchange="render()" />
+          </div>
+          <div class="field">
+            <label>現在時刻</label>
+            <input id="currentTime" type="time" value="14:00" onchange="render()" />
+          </div>
+          <div class="field">
+            <label>案件難易度</label>
+            <select id="difficulty" onchange="render()">
+              <option value="0.9">低い / SKU少</option>
+              <option value="1.0" selected>標準</option>
+              <option value="1.15">高い / SKU多</option>
+              <option value="1.3">非常に高い / 多品種小ロット</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>工程追加</h2>
+        <p class="section-note">自動包装機は件/時間の能力値を入力できます。人員は稼働最大化に必要な最低人員を前提表示します。</p>
+        <div class="form-grid">
+          <div class="field full">
+            <label>工程</label>
+            <select id="newProcessName">
+              <option>ピッキング</option>
+              <option>仕分け</option>
+              <option>検品</option>
+              <option>自動包装機</option>
+              <option>手梱包</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>予定数量</label>
+            <input id="newPlannedQty" type="number" value="2400" min="0" />
+          </div>
+          <div class="field">
+            <label>標準能力 件/時/人</label>
+            <input id="newThroughput" type="number" value="90" min="1" />
+          </div>
+          <div class="field">
+            <label>現在完了数</label>
+            <input id="newDoneQty" type="number" value="900" min="0" />
+          </div>
+          <div class="field">
+            <label>最低人数</label>
+            <input id="newMinWorkers" type="number" value="1" min="0" />
+          </div>
+          <div class="field full">
+            <label>自動包装機 能力値（件/時間）</label>
+            <input id="newMachineCapacity" type="number" value="450" min="0" />
+          </div>
+          <div class="field full">
+            <button class="btn btn-primary" onclick="addProcess()">工程を追加</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>ライン追加</h2>
+        <p class="section-note">ラインごとに工程の組み合わせを選び、ライン別の負荷と完了見込みを表示します。</p>
+        <div class="form-grid">
+          <div class="field">
+            <label>ライン名</label>
+            <input id="newLineName" value="ラインD" />
+          </div>
+          <div class="field">
+            <label>出荷件数</label>
+            <input id="newLineQty" type="number" value="680" min="0" />
+          </div>
+          <div class="field full">
+            <label>工程組み合わせ</label>
+            <select id="newLineProcesses" multiple size="5"></select>
+          </div>
+          <div class="field full">
+            <button class="btn btn-primary" onclick="addLine()">ラインを追加</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>作業者追加</h2>
+        <p class="section-note">工程別の生産性係数を持つ作業者を追加できます。1.20なら標準比120%です。</p>
+        <div class="form-grid">
+          <div class="field">
+            <label>作業者名</label>
+            <input id="newWorkerName" value="新規スタッフ" />
+          </div>
+          <div class="field">
+            <label>主工程</label>
+            <select id="newWorkerDefault"></select>
+          </div>
+          <div class="field full">
+            <button class="btn btn-secondary" onclick="addWorker()">作業者を追加</button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="dashboard">
+        <div class="card">
+          <h2>当日サマリー</h2>
+          <p class="section-note">最終アウトプットの入口。管理者が最初に見る想定のダッシュボードです。</p>
+          <div class="kpi-row">
+            <div class="kpi">
+              <div class="k-label">総予定数量</div>
+              <div class="k-value" id="totalPlanned">0</div>
+              <div class="k-sub">全工程合計</div>
+            </div>
+            <div class="kpi">
+              <div class="k-label">総残数量</div>
+              <div class="k-value" id="totalRemaining">0</div>
+              <div class="k-sub">未完了分</div>
+            </div>
+            <div class="kpi">
+              <div class="k-label">現在配置人数</div>
+              <div class="k-value" id="totalWorkers">0</div>
+              <div class="k-sub">全工程配置中</div>
+            </div>
+            <div class="kpi">
+              <div class="k-label">遅延リスク</div>
+              <div class="k-value" id="riskLevel">高</div>
+              <div class="k-sub" id="riskReason">目標超過見込み</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>AI配置提案イメージ</h2>
+          <p class="section-note">実装初期はルールベース計算で十分です。重要なのは「現状・問題・提案・根拠・注意点」を同時に見せることです。</p>
+          <div class="recommendation">
+            <div>
+              <h3 id="recommendTitle">検品から1名をピッキングへ移動</h3>
+              <span class="badge high" id="recommendBadge">遅延改善提案</span>
+              <ul id="recommendReasons"></ul>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="applyRecommendation()">この配置案を反映</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>ライン別工程構成</h2>
+          <p class="section-note">クライアントごとの作業フロー差分を表現します。ライン追加・工程組み合わせ変更のモックです。</p>
+          <div id="lineGrid" class="line-grid"></div>
+        </div>
+
+        <div class="card">
+          <h2>工程別の現状</h2>
+          <p class="section-note">工程ごとの進捗・配置人数・処理能力・完了見込みを表示します。</p>
+          <div id="processList" class="process-list"></div>
+        </div>
+
+        <div class="card">
+          <h2>時間帯別 人員配置提案</h2>
+          <p class="section-note">このモックで最も見せたい最終アウトプットです。各時間帯で「必要人数 / 現在人数 / 余不足」を表示します。</p>
+          <div class="timeline-wrap">
+            <table id="timelineTable"></table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>作業者別 生産性マスター</h2>
+          <p class="section-note">過去実績が入ると、工程別の得意不得意を加味した配置提案に発展できます。</p>
+          <div id="workerGrid" class="workers"></div>
+        </div>
+
+        <div id="assetsSection" class="card">
+          <h2>検証に必要なクライアント提供アセット</h2>
+          <p class="section-note">この画面の最下部は、商談・PoC開始時に「何を出してもらえば検証できるか」を明確にするためのセクションです。</p>
+          <div class="assets">
+            <div class="asset">
+              <h3>1. 出荷・作業予定データ</h3>
+              <ul>
+                <li>作業日、案件ID、荷主/顧客名</li>
+                <li>出荷件数、注文数、明細行数</li>
+                <li>SKU数、数量、ロケーション数</li>
+                <li>工程別の予定数量</li>
+                <li>目標完了時刻、出荷締め時刻</li>
+              </ul>
+            </div>
+            <div class="asset">
+              <h3>2. 工程マスター</h3>
+              <ul>
+                <li>工程名、工程順序、対象ライン</li>
+                <li>標準処理能力 件/時/人</li>
+                <li>最低人数、最大人数</li>
+                <li>自動包装機など設備能力 件/時間</li>
+                <li>資格・権限・エリア制約</li>
+              </ul>
+            </div>
+            <div class="asset">
+              <h3>3. 作業者マスター</h3>
+              <ul>
+                <li>作業者ID、氏名、雇用区分</li>
+                <li>対応可能工程、主担当工程</li>
+                <li>新人/熟練者区分</li>
+                <li>資格、配置不可工程</li>
+                <li>休憩・勤務可能時間</li>
+              </ul>
+            </div>
+            <div class="asset">
+              <h3>4. 過去作業ログ</h3>
+              <ul>
+                <li>誰が、どの工程で、いつ作業したか</li>
+                <li>開始時刻、終了時刻、処理数量</li>
+                <li>同時作業人数、ライン、案件ID</li>
+                <li>エラー数、差戻し、品質指標</li>
+                <li>作業者×工程別の実績処理速度</li>
+              </ul>
+            </div>
+            <div class="asset">
+              <h3>5. 現場制約・運用ルール</h3>
+              <ul>
+                <li>工程間の移動可否、移動コスト</li>
+                <li>新人単独配置禁止などの制約</li>
+                <li>固定配置・相性・教育担当</li>
+                <li>優先案件、締め時刻、残業許容</li>
+                <li>管理者が普段見ている判断基準</li>
+              </ul>
+            </div>
+            <div class="asset">
+              <h3>6. 検証用KPI</h3>
+              <ul>
+                <li>予測終了時刻と実績終了時刻の誤差</li>
+                <li>遅延検知の早さ</li>
+                <li>配置変更後の改善分数</li>
+                <li>残業削減、応援投入削減</li>
+                <li>管理者の判断時間短縮</li>
+              </ul>
+            </div>
+          </div>
+          <p class="footer-note">
+            PoC初期は完全なAI最適化ではなく、過去実績から「工程別の標準能力」「作業者別補正」「当日残作業」を使ったルールベース予測で十分に検証できます。
+          </p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const initialState = {
+      processes: [
+        { id: "picking", name: "ピッキング", plannedQty: 3200, doneQty: 1680, throughput: 85, minWorkers: 3, assigned: ["w1", "w2", "w3", "w4"], machineCapacity: 0 },
+        { id: "sorting", name: "仕分け", plannedQty: 2600, doneQty: 1510, throughput: 110, minWorkers: 2, assigned: ["w5", "w6"], machineCapacity: 0 },
+        { id: "inspection", name: "検品", plannedQty: 2600, doneQty: 1730, throughput: 95, minWorkers: 2, assigned: ["w7", "w8", "w9"], machineCapacity: 0 },
+        { id: "auto-pack", name: "自動包装機", plannedQty: 2100, doneQty: 1280, throughput: 60, minWorkers: 1, assigned: ["w10"], machineCapacity: 520 },
+        { id: "manual-pack", name: "手梱包", plannedQty: 900, doneQty: 380, throughput: 70, minWorkers: 2, assigned: ["w11", "w12"], machineCapacity: 0 }
+      ],
+      lines: [
+        { id: "line-a", name: "ラインA / 標準出荷", qty: 1400, processIds: ["picking", "sorting", "inspection", "auto-pack"] },
+        { id: "line-b", name: "ラインB / 多品種小ロット", qty: 920, processIds: ["picking", "sorting", "inspection", "manual-pack"] },
+        { id: "line-c", name: "ラインC / 大型・特殊梱包", qty: 520, processIds: ["picking", "inspection", "manual-pack"] }
+      ],
+      workers: [
+        { id: "w1", name: "佐藤", defaultProcess: "ピッキング", skills: { "ピッキング": 1.18, "仕分け": .95, "検品": .90, "自動包装機": .80, "手梱包": .92 } },
+        { id: "w2", name: "鈴木", defaultProcess: "ピッキング", skills: { "ピッキング": 1.10, "仕分け": 1.05, "検品": .95, "自動包装機": .90, "手梱包": .92 } },
+        { id: "w3", name: "高橋", defaultProcess: "ピッキング", skills: { "ピッキング": .98, "仕分け": 1.10, "検品": .92, "自動包装機": .85, "手梱包": .96 } },
+        { id: "w4", name: "田中", defaultProcess: "ピッキング", skills: { "ピッキング": .92, "仕分け": .95, "検品": .90, "自動包装機": .85, "手梱包": .90 } },
+        { id: "w5", name: "伊藤", defaultProcess: "仕分け", skills: { "ピッキング": .92, "仕分け": 1.22, "検品": .98, "自動包装機": .80, "手梱包": .88 } },
+        { id: "w6", name: "山本", defaultProcess: "仕分け", skills: { "ピッキング": .88, "仕分け": 1.12, "検品": .90, "自動包装機": .85, "手梱包": .86 } },
+        { id: "w7", name: "渡辺", defaultProcess: "検品", skills: { "ピッキング": .90, "仕分け": .95, "検品": 1.25, "自動包装機": .92, "手梱包": .98 } },
+        { id: "w8", name: "中村", defaultProcess: "検品", skills: { "ピッキング": .86, "仕分け": .92, "検品": 1.14, "自動包装機": .88, "手梱包": .94 } },
+        { id: "w9", name: "小林", defaultProcess: "検品", skills: { "ピッキング": .84, "仕分け": .90, "検品": 1.06, "自動包装機": .86, "手梱包": .92 } },
+        { id: "w10", name: "加藤", defaultProcess: "自動包装機", skills: { "ピッキング": .80, "仕分け": .86, "検品": .92, "自動包装機": 1.20, "手梱包": .88 } },
+        { id: "w11", name: "吉田", defaultProcess: "手梱包", skills: { "ピッキング": .88, "仕分け": .92, "検品": .98, "自動包装機": .82, "手梱包": 1.18 } },
+        { id: "w12", name: "山田", defaultProcess: "手梱包", skills: { "ピッキング": .82, "仕分け": .88, "検品": .92, "自動包装機": .80, "手梱包": 1.05 } }
+      ]
+    };
+
+    let state = structuredClone(initialState);
+
+    function todayStr() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    document.getElementById("workDate").value = todayStr();
+
+    function uid(prefix) {
+      return prefix + "-" + Math.random().toString(36).slice(2, 8);
+    }
+
+    function minutesFromTime(t) {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function timeFromMinutes(mins) {
+      mins = Math.round(mins);
+      const h = Math.floor(mins / 60) % 24;
+      const m = mins % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function getWorker(id) {
+      return state.workers.find(w => w.id === id);
+    }
+
+    function getProcess(id) {
+      return state.processes.find(p => p.id === id);
+    }
+
+    function processCapacity(process) {
+      const difficulty = Number(document.getElementById("difficulty").value || 1);
+      if (process.name === "自動包装機" && process.machineCapacity > 0) {
+        const operatorEffect = Math.max(1, process.assigned.length) * 0.02;
+        return process.machineCapacity * (1 + operatorEffect) / difficulty;
+      }
+      return process.assigned.reduce((sum, workerId) => {
+        const worker = getWorker(workerId);
+        const coef = worker?.skills?.[process.name] ?? 1;
+        return sum + process.throughput * coef / difficulty;
+      }, 0);
+    }
+
+    function remaining(process) {
+      return Math.max(0, process.plannedQty - process.doneQty);
+    }
+
+    function endMinutes(process) {
+      const current = minutesFromTime(document.getElementById("currentTime").value || "14:00");
+      const cap = processCapacity(process);
+      if (remaining(process) <= 0) return current;
+      if (cap <= 0) return current + 9999;
+      return current + (remaining(process) / cap) * 60;
+    }
+
+    function riskClass(endMin) {
+      const target = minutesFromTime(document.getElementById("targetTime").value || "17:30");
+      if (endMin > target + 30) return "over";
+      if (endMin > target) return "tight";
+      return "ok";
+    }
+
+    function riskLabel(endMin) {
+      const target = minutesFromTime(document.getElementById("targetTime").value || "17:30");
+      if (endMin > target + 30) return "高";
+      if (endMin > target) return "中";
+      return "低";
+    }
+
+    function sortedByBottleneck() {
+      return [...state.processes].sort((a, b) => endMinutes(b) - endMinutes(a));
+    }
+
+    function findRecommendation() {
+      const targetProc = sortedByBottleneck()[0];
+      const sourceCandidates = state.processes
+        .filter(p => p.id !== targetProc.id && p.assigned.length > p.minWorkers)
+        .sort((a, b) => endMinutes(a) - endMinutes(b));
+
+      let best = null;
+
+      for (const source of sourceCandidates) {
+        for (const workerId of source.assigned) {
+          const worker = getWorker(workerId);
+          const targetSkill = worker?.skills?.[targetProc.name] ?? 1;
+          const sourceSkill = worker?.skills?.[source.name] ?? 1;
+          const score = targetSkill - sourceSkill * .4;
+          if (!best || score > best.score) {
+            best = { source, target: targetProc, worker, score };
+          }
+        }
+      }
+
+      if (!best && state.workers.length) {
+        const worker = state.workers.find(w => !state.processes.some(p => p.assigned.includes(w.id)));
+        if (worker) best = { source: null, target: targetProc, worker, score: worker.skills[targetProc.name] ?? 1 };
+      }
+
+      return best;
+    }
+
+    function simulateImprovement(rec) {
+      if (!rec) return 0;
+      const before = Math.max(...state.processes.map(p => endMinutes(p)));
+      const snap = structuredClone(state.processes);
+      if (rec.source) {
+        const s = snap.find(p => p.id === rec.source.id);
+        s.assigned = s.assigned.filter(id => id !== rec.worker.id);
+      }
+      const t = snap.find(p => p.id === rec.target.id);
+      if (!t.assigned.includes(rec.worker.id)) t.assigned.push(rec.worker.id);
+
+      const oldProcesses = state.processes;
+      state.processes = snap;
+      const after = Math.max(...state.processes.map(p => endMinutes(p)));
+      state.processes = oldProcesses;
+
+      return Math.round(before - after);
+    }
+
+    function renderSelectors() {
+      const lineSel = document.getElementById("newLineProcesses");
+      lineSel.innerHTML = state.processes.map(p => `<option value="${p.id}" selected>${p.name}</option>`).join("");
+
+      const workerDefault = document.getElementById("newWorkerDefault");
+      workerDefault.innerHTML = state.processes.map(p => `<option>${p.name}</option>`).join("");
+    }
+
+    function renderSummary() {
+      const totalPlanned = state.processes.reduce((s, p) => s + p.plannedQty, 0);
+      const totalRemaining = state.processes.reduce((s, p) => s + remaining(p), 0);
+      const totalWorkers = state.processes.reduce((s, p) => s + p.assigned.length, 0);
+      const overall = Math.max(...state.processes.map(p => endMinutes(p)));
+      const target = minutesFromTime(document.getElementById("targetTime").value || "17:30");
+      const bottle = sortedByBottleneck()[0];
+      const rec = findRecommendation();
+      const improve = simulateImprovement(rec);
+
+      document.getElementById("totalPlanned").textContent = totalPlanned.toLocaleString();
+      document.getElementById("totalRemaining").textContent = totalRemaining.toLocaleString();
+      document.getElementById("totalWorkers").textContent = `${totalWorkers}名`;
+      document.getElementById("overallEnd").textContent = timeFromMinutes(overall);
+      document.getElementById("riskLevel").textContent = riskLabel(overall);
+      document.getElementById("riskReason").textContent = overall > target ? `${Math.round(overall - target)}分超過見込み` : "目標内に完了見込み";
+      document.getElementById("bottleneckName").textContent = bottle?.name ?? "-";
+      document.getElementById("bottleneckNote").textContent = bottle ? `完了見込み ${timeFromMinutes(endMinutes(bottle))} / 残 ${remaining(bottle).toLocaleString()}件` : "-";
+      document.getElementById("improvementValue").textContent = improve > 0 ? `-${improve}分` : "余地小";
+
+      const title = rec?.source
+        ? `${rec.worker.name}さんを${rec.source.name}から${rec.target.name}へ移動`
+        : rec
+          ? `${rec.worker.name}さんを${rec.target.name}へ追加配置`
+          : "現配置で大きな変更提案はありません";
+      document.getElementById("recommendTitle").textContent = title;
+
+      const reasons = rec ? [
+        `${rec.target.name}工程が現在の主要ボトルネックです。`,
+        `${rec.worker.name}さんは${rec.target.name}の生産性係数が${((rec.worker.skills[rec.target.name] ?? 1) * 100).toFixed(0)}%です。`,
+        rec.source ? `${rec.source.name}は最低人数を超えており、移動余地があります。` : `未配置または追加人員として投入可能です。`,
+        improve > 0 ? `全体完了見込みを約${improve}分短縮できる試算です。` : `現時点では改善幅が限定的です。`,
+        `注意：実運用では休憩・資格・固定配置・新人教育などの制約確認が必要です。`
+      ] : ["配置変更の余地が小さいため、現状維持を推奨します。"];
+
+      document.getElementById("recommendReasons").innerHTML = reasons.map(r => `<li>${r}</li>`).join("");
+    }
+
+    function renderLines() {
+      const box = document.getElementById("lineGrid");
+      box.innerHTML = state.lines.map(line => {
+        const rows = line.processIds.map(pid => {
+          const p = getProcess(pid);
+          if (!p) return "";
+          const progress = p.plannedQty ? clamp((p.doneQty / p.plannedQty) * 100, 0, 100) : 0;
+          return `
+            <div class="flow-row">
+              <div class="flow-name">${p.name}</div>
+              <div class="bar"><span style="width:${progress}%"></span></div>
+              <div class="flow-num">${progress.toFixed(0)}%</div>
+            </div>`;
+        }).join("");
+
+        return `
+          <div class="line-card">
+            <h3>
+              <span>${line.name}</span>
+              <button class="delete" onclick="deleteLine('${line.id}')">削除</button>
+            </h3>
+            <div class="mini">出荷件数 ${Number(line.qty).toLocaleString()}件 / 工程 ${line.processIds.length}</div>
+            <div class="process-flow">${rows}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderProcesses() {
+      const box = document.getElementById("processList");
+      box.innerHTML = state.processes.map(p => {
+        const cap = processCapacity(p);
+        const end = endMinutes(p);
+        const progress = p.plannedQty ? clamp((p.doneQty / p.plannedQty) * 100, 0, 100) : 0;
+        const assignedNames = p.assigned.map(id => getWorker(id)?.name).filter(Boolean);
+        const machine = p.name === "自動包装機" ? `<span class="chip">設備能力 ${p.machineCapacity.toLocaleString()}件/時</span>` : "";
+        return `
+          <div class="item">
+            <div class="item-head">
+              <div>
+                <div class="item-title">${p.name} <span class="badge ${riskLabel(end) === "高" ? "high" : riskLabel(end) === "中" ? "mid" : "low"}">リスク${riskLabel(end)}</span></div>
+                <div class="mini">
+                  予定 ${p.plannedQty.toLocaleString()}件 / 完了 ${p.doneQty.toLocaleString()}件 / 残 ${remaining(p).toLocaleString()}件 /
+                  完了見込み ${timeFromMinutes(end)}
+                </div>
+              </div>
+              <button class="delete" onclick="deleteProcess('${p.id}')">削除</button>
+            </div>
+            <div class="chips">
+              <span class="chip">進捗 ${progress.toFixed(1)}%</span>
+              <span class="chip">配置 ${p.assigned.length}名</span>
+              <span class="chip">処理能力 ${cap.toFixed(0)}件/時</span>
+              <span class="chip">最低 ${p.minWorkers}名</span>
+              ${machine}
+            </div>
+            <div class="chips">
+              ${assignedNames.map(n => `<span class="chip">${n}</span>`).join("") || `<span class="chip">未配置</span>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderTimeline() {
+      const table = document.getElementById("timelineTable");
+      const hours = ["14:00", "15:00", "16:00", "17:00", "18:00"];
+      let html = `<thead><tr><th>工程</th>${hours.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>`;
+
+      state.processes.forEach(p => {
+        html += `<tr><td>${p.name}</td>`;
+        const rem = remaining(p);
+        hours.forEach((h, idx) => {
+          const target = minutesFromTime(document.getElementById("targetTime").value || "17:30");
+          const hourMin = minutesFromTime(h);
+          const remainingHoursToTarget = Math.max((target - hourMin) / 60, 0.5);
+          const difficulty = Number(document.getElementById("difficulty").value || 1);
+          const base = p.name === "自動包装機" && p.machineCapacity > 0 ? p.machineCapacity : p.throughput;
+          const demandFactor = idx < 2 ? 1.00 : idx === 2 ? .82 : .55;
+          const need = Math.max(p.minWorkers, Math.ceil((rem * demandFactor / remainingHoursToTarget) / (base / difficulty)));
+          const current = p.assigned.length;
+          const diff = current - need;
+          const klass = diff < 0 ? "over" : diff === 0 ? "tight" : "ok";
+          const diffText = diff < 0 ? `${Math.abs(diff)}名不足` : diff === 0 ? "適正" : `${diff}名余力`;
+          html += `
+            <td class="${klass}">
+              <div class="cell">
+                <div class="need">${need}名</div>
+                <div class="small">現在 ${current}名</div>
+                <div class="small">${diffText}</div>
+              </div>
+            </td>`;
+        });
+        html += `</tr>`;
+      });
+
+      html += `</tbody>`;
+      table.innerHTML = html;
+    }
+
+    function renderWorkers() {
+      const box = document.getElementById("workerGrid");
+      const procNames = state.processes.map(p => p.name);
+
+      box.innerHTML = state.workers.map(w => {
+        const skills = procNames.map(name => {
+          const val = w.skills[name] ?? 1;
+          const pct = clamp(val * 75, 12, 100);
+          return `
+            <div class="skill">
+              <span>${name}</span>
+              <div class="bar"><span style="width:${pct}%"></span></div>
+              <strong>${(val * 100).toFixed(0)}%</strong>
+            </div>`;
+        }).join("");
+
+        const assigned = state.processes.find(p => p.assigned.includes(w.id))?.name || "未配置";
+
+        return `
+          <div class="worker">
+            <div class="worker-name">
+              <span>${w.name}</span>
+              <span class="badge info">${assigned}</span>
+            </div>
+            <div class="mini">主工程：${w.defaultProcess}</div>
+            <div class="skill-grid">${skills}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function render() {
+      renderSelectors();
+      renderSummary();
+      renderLines();
+      renderProcesses();
+      renderTimeline();
+      renderWorkers();
+    }
+
+    function addProcess() {
+      const name = document.getElementById("newProcessName").value;
+      const id = uid("process");
+      const plannedQty = Number(document.getElementById("newPlannedQty").value || 0);
+      const doneQty = Number(document.getElementById("newDoneQty").value || 0);
+      const throughput = Number(document.getElementById("newThroughput").value || 1);
+      const minWorkers = Number(document.getElementById("newMinWorkers").value || 0);
+      const machineCapacity = name === "自動包装機" ? Number(document.getElementById("newMachineCapacity").value || 0) : 0;
+
+      state.processes.push({ id, name, plannedQty, doneQty, throughput, minWorkers, assigned: [], machineCapacity });
+
+      state.workers.forEach(w => {
+        if (!(name in w.skills)) w.skills[name] = 1.0;
+      });
+
+      render();
+    }
+
+    function deleteProcess(id) {
+      const p = getProcess(id);
+      if (!p) return;
+      state.processes = state.processes.filter(x => x.id !== id);
+      state.lines.forEach(line => line.processIds = line.processIds.filter(pid => pid !== id));
+      render();
+    }
+
+    function addLine() {
+      const name = document.getElementById("newLineName").value || `ライン${state.lines.length + 1}`;
+      const qty = Number(document.getElementById("newLineQty").value || 0);
+      const selected = Array.from(document.getElementById("newLineProcesses").selectedOptions).map(o => o.value);
+      state.lines.push({ id: uid("line"), name, qty, processIds: selected.length ? selected : state.processes.map(p => p.id) });
+      render();
+    }
+
+    function deleteLine(id) {
+      state.lines = state.lines.filter(x => x.id !== id);
+      render();
+    }
+
+    function addWorker() {
+      const name = document.getElementById("newWorkerName").value || `作業者${state.workers.length + 1}`;
+      const defaultProcess = document.getElementById("newWorkerDefault").value || state.processes[0]?.name || "";
+      const skills = {};
+      state.processes.forEach(p => {
+        skills[p.name] = p.name === defaultProcess ? 1.08 : 0.95;
+      });
+      state.workers.push({ id: uid("worker"), name, defaultProcess, skills });
+      render();
+    }
+
+    function applyRecommendation() {
+      const rec = findRecommendation();
+      if (!rec) return;
+      if (rec.source) {
+        rec.source.assigned = rec.source.assigned.filter(id => id !== rec.worker.id);
+      }
+      if (!rec.target.assigned.includes(rec.worker.id)) {
+        rec.target.assigned.push(rec.worker.id);
+      }
+      render();
+    }
+
+    function resetDemo() {
+      state = structuredClone(initialState);
+      render();
+    }
+
+    function scrollToAssets() {
+      document.getElementById("assetsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    render();
+  </script>
+</body>
+</html>
