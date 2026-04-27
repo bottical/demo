@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>人員配置ダッシュボード</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #dbe4ef;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --green: #16a34a;
+      --green-soft: #dcfce7;
+      --yellow: #d97706;
+      --yellow-soft: #fef3c7;
+      --red: #dc2626;
+      --red-soft: #fee2e2;
+      --shadow: 0 16px 40px rgba(15, 23, 42, .08);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, .12), transparent 28%),
+        linear-gradient(180deg, #eef4ff 0, var(--bg) 360px);
+      color: var(--ink);
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(360px, .7fr);
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .hero, .summary-card, .panel {
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid rgba(219, 228, 239, .95);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border: 1px solid #bfdbfe;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.1;
+      letter-spacing: -.045em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 880px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.9;
+    }
+
+    .summary-grid { display: grid; gap: 12px; }
+
+    .summary-card { padding: 18px; }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+
+    .summary-value {
+      margin-top: 6px;
+      font-size: 30px;
+      font-weight: 950;
+      letter-spacing: -.035em;
+    }
+
+    .summary-note {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    .yellow { color: var(--yellow); }
+    .blue { color: var(--blue); }
+
+    .panel {
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -.025em;
+    }
+
+    .panel-desc {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .time-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      font-size: 13px;
+      font-weight: 900;
+      color: #334155;
+    }
+
+    .line-stack { display: grid; gap: 16px; }
+
+    .line-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 18px;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 220px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .line-title {
+      display: grid;
+      align-content: space-between;
+      min-height: 180px;
+    }
+
+    .line-title h3 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      letter-spacing: -.03em;
+    }
+
+    .line-sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 950;
+      margin-top: 14px;
+    }
+
+    .risk-low {
+      color: #166534;
+      background: var(--green-soft);
+      border: 1px solid #bbf7d0;
+    }
+
+    .risk-mid {
+      color: #92400e;
+      background: var(--yellow-soft);
+      border: 1px solid #fde68a;
+    }
+
+    .risk-high {
+      color: #991b1b;
+      background: var(--red-soft);
+      border: 1px solid #fecaca;
+    }
+
+    .progress-area {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+    }
+
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .progress-percent {
+      font-size: 38px;
+      font-weight: 950;
+      letter-spacing: -.05em;
+    }
+
+    .progress-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .progress-bar {
+      height: 18px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+      border: 1px solid #d8e0ec;
+    }
+
+    .progress-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0891b2, #2563eb);
+    }
+
+    .process-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(100px, 1fr));
+      gap: 8px;
+    }
+
+    .process-pill {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 10px;
+      min-height: 78px;
+    }
+
+    .process-name {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .process-stat {
+      margin-top: 5px;
+      font-size: 18px;
+      font-weight: 950;
+      letter-spacing: -.02em;
+    }
+
+    .process-mini {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .forecast-box {
+      border-left: 1px solid var(--line);
+      padding-left: 18px;
+      display: grid;
+      align-content: center;
+      gap: 12px;
+    }
+
+    .forecast-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .forecast-value {
+      font-size: 25px;
+      font-weight: 950;
+      letter-spacing: -.035em;
+    }
+
+    .forecast-small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: 160px repeat(5, minmax(140px, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .timeline-cell {
+      padding: 13px;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      min-height: 82px;
+    }
+
+    .timeline-head {
+      background: #f8fafc;
+      font-weight: 950;
+      color: #334155;
+      min-height: 48px;
+    }
+
+    .timeline-line {
+      background: #fbfdff;
+      font-weight: 950;
+    }
+
+    .timeline-num {
+      font-size: 24px;
+      font-weight: 950;
+      letter-spacing: -.035em;
+    }
+
+    .timeline-mini {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 3px;
+    }
+
+    .cell-good { background: #f0fdf4; }
+    .cell-warn { background: #fffbeb; }
+    .cell-bad { background: #fff1f2; }
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .insight {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .insight-title {
+      font-size: 14px;
+      font-weight: 950;
+      margin-bottom: 8px;
+    }
+
+    .insight-body {
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.75;
+    }
+
+    @media (max-width: 1100px) {
+      .header { grid-template-columns: 1fr; }
+      .line-card { grid-template-columns: 1fr; }
+      .line-title { min-height: auto; }
+      .forecast-box {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding-left: 0;
+        padding-top: 16px;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .process-row { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .timeline-grid {
+        min-width: 860px;
+      }
+      .timeline-scroll {
+        overflow-x: auto;
+      }
+      .insight-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 14px; }
+      .hero, .panel { padding: 18px; }
+      .forecast-box { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="header">
+      <div class="hero">
+        <span class="eyebrow">人員配置ダッシュボード</span>
+        <h1>ライン別の進捗・人員・完了見込みを一画面で把握</h1>
+        <p class="lead">
+          各ラインの現在進捗、配置人数、終了予想時刻、遅延リスクを集約して表示します。
+          管理者が「どのラインが遅れているか」「どの工程に人員を寄せるべきか」を即座に判断するための画面です。
+        </p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">全体完了見込み</div>
+          <div class="summary-value red">18:05</div>
+          <div class="summary-note">目標完了 17:30 / 35分超過見込み</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">総進捗</div>
+          <div class="summary-value blue">64.8%</div>
+          <div class="summary-note">予定 7,120件 / 完了 4,614件</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">現在配置人数</div>
+          <div class="summary-value green">22名</div>
+          <div class="summary-note">不足推定 3名 / 主要不足工程：ピッキング</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>ライン別 進捗・完了見込み</h2>
+          <p class="panel-desc">各ラインを縦に並べ、進捗率・配置人数・終了予想時刻・工程別状況を表示します。</p>
+        </div>
+        <div class="time-chip">現在時刻 14:00 / 目標完了 17:30</div>
+      </div>
+
+      <div class="line-stack">
+        <article class="line-card">
+          <div class="line-title">
+            <div>
+              <h3>ラインA</h3>
+              <div class="line-sub">標準出荷ライン / 自動包装機中心</div>
+              <span class="risk-badge risk-low">遅延リスク 低</span>
+            </div>
+            <div class="line-sub">出荷予定 2,400件<br>完了 1,720件 / 残 680件</div>
+          </div>
+
+          <div class="progress-area">
+            <div class="progress-top">
+              <div>
+                <div class="progress-label">現在進捗</div>
+                <div class="progress-percent green">71.7%</div>
+              </div>
+              <div>
+                <div class="progress-label">配置人数</div>
+                <div class="progress-percent">7名</div>
+              </div>
+            </div>
+            <div class="progress-bar"><span style="width:71.7%"></span></div>
+            <div class="process-row">
+              <div class="process-pill"><div class="process-name">ピッキング</div><div class="process-stat">74%</div><div class="process-mini">3名 / 順調</div></div>
+              <div class="process-pill"><div class="process-name">仕分け</div><div class="process-stat">69%</div><div class="process-mini">1名 / 注意</div></div>
+              <div class="process-pill"><div class="process-name">検品</div><div class="process-stat">72%</div><div class="process-mini">2名 / 順調</div></div>
+              <div class="process-pill"><div class="process-name">自動包装機</div><div class="process-stat">78%</div><div class="process-mini">1名 / 520件/時</div></div>
+              <div class="process-pill"><div class="process-name">手梱包</div><div class="process-stat">-</div><div class="process-mini">対象外</div></div>
+            </div>
+          </div>
+
+          <div class="forecast-box">
+            <div><div class="forecast-label">終了予想</div><div class="forecast-value green">17:18</div><div class="forecast-small">目標内に完了見込み</div></div>
+            <div><div class="forecast-label">不足人数</div><div class="forecast-value green">0名</div><div class="forecast-small">現配置で維持可能</div></div>
+            <div><div class="forecast-label">推奨判断</div><div class="forecast-value">維持</div><div class="forecast-small">人員移動の優先度は低い</div></div>
+          </div>
+        </article>
+
+        <article class="line-card">
+          <div class="line-title">
+            <div>
+              <h3>ラインB</h3>
+              <div class="line-sub">多品種小ロット / 手作業比率高</div>
+              <span class="risk-badge risk-high">遅延リスク 高</span>
+            </div>
+            <div class="line-sub">出荷予定 3,120件<br>完了 1,620件 / 残 1,500件</div>
+          </div>
+
+          <div class="progress-area">
+            <div class="progress-top">
+              <div>
+                <div class="progress-label">現在進捗</div>
+                <div class="progress-percent red">51.9%</div>
+              </div>
+              <div>
+                <div class="progress-label">配置人数</div>
+                <div class="progress-percent">9名</div>
+              </div>
+            </div>
+            <div class="progress-bar"><span style="width:51.9%"></span></div>
+            <div class="process-row">
+              <div class="process-pill"><div class="process-name">ピッキング</div><div class="process-stat red">44%</div><div class="process-mini">4名 / 不足</div></div>
+              <div class="process-pill"><div class="process-name">仕分け</div><div class="process-stat yellow">58%</div><div class="process-mini">2名 / 注意</div></div>
+              <div class="process-pill"><div class="process-name">検品</div><div class="process-stat">63%</div><div class="process-mini">2名 / 標準</div></div>
+              <div class="process-pill"><div class="process-name">自動包装機</div><div class="process-stat">-</div><div class="process-mini">対象外</div></div>
+              <div class="process-pill"><div class="process-name">手梱包</div><div class="process-stat red">42%</div><div class="process-mini">1名 / 不足</div></div>
+            </div>
+          </div>
+
+          <div class="forecast-box">
+            <div><div class="forecast-label">終了予想</div><div class="forecast-value red">18:05</div><div class="forecast-small">目標より35分遅延見込み</div></div>
+            <div><div class="forecast-label">不足人数</div><div class="forecast-value red">2名</div><div class="forecast-small">ピッキング +1 / 手梱包 +1</div></div>
+            <div><div class="forecast-label">推奨判断</div><div class="forecast-value">応援投入</div><div class="forecast-small">ラインAまたはCから一時移動</div></div>
+          </div>
+        </article>
+
+        <article class="line-card">
+          <div class="line-title">
+            <div>
+              <h3>ラインC</h3>
+              <div class="line-sub">大型・特殊梱包 / 検品重視</div>
+              <span class="risk-badge risk-mid">遅延リスク 中</span>
+            </div>
+            <div class="line-sub">出荷予定 1,600件<br>完了 1,274件 / 残 326件</div>
+          </div>
+
+          <div class="progress-area">
+            <div class="progress-top">
+              <div>
+                <div class="progress-label">現在進捗</div>
+                <div class="progress-percent yellow">79.6%</div>
+              </div>
+              <div>
+                <div class="progress-label">配置人数</div>
+                <div class="progress-percent">6名</div>
+              </div>
+            </div>
+            <div class="progress-bar"><span style="width:79.6%"></span></div>
+            <div class="process-row">
+              <div class="process-pill"><div class="process-name">ピッキング</div><div class="process-stat">82%</div><div class="process-mini">2名 / 順調</div></div>
+              <div class="process-pill"><div class="process-name">仕分け</div><div class="process-stat">-</div><div class="process-mini">対象外</div></div>
+              <div class="process-pill"><div class="process-name">検品</div><div class="process-stat yellow">74%</div><div class="process-mini">2名 / 注意</div></div>
+              <div class="process-pill"><div class="process-name">自動包装機</div><div class="process-stat">-</div><div class="process-mini">対象外</div></div>
+              <div class="process-pill"><div class="process-name">手梱包</div><div class="process-stat">76%</div><div class="process-mini">2名 / 標準</div></div>
+            </div>
+          </div>
+
+          <div class="forecast-box">
+            <div><div class="forecast-label">終了予想</div><div class="forecast-value yellow">17:42</div><div class="forecast-small">目標より12分遅延見込み</div></div>
+            <div><div class="forecast-label">不足人数</div><div class="forecast-value yellow">1名</div><div class="forecast-small">検品へ一時応援推奨</div></div>
+            <div><div class="forecast-label">推奨判断</div><div class="forecast-value">監視</div><div class="forecast-small">ラインB優先後に調整</div></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>時間帯別 必要人員イメージ</h2>
+          <p class="panel-desc">各ラインの残作業と処理速度から、時間帯ごとの必要人数を表示します。</p>
+        </div>
+      </div>
+
+      <div class="timeline-scroll">
+        <div class="timeline-grid">
+          <div class="timeline-cell timeline-head">ライン</div>
+          <div class="timeline-cell timeline-head">14:00</div>
+          <div class="timeline-cell timeline-head">15:00</div>
+          <div class="timeline-cell timeline-head">16:00</div>
+          <div class="timeline-cell timeline-head">17:00</div>
+          <div class="timeline-cell timeline-head">18:00</div>
+
+          <div class="timeline-cell timeline-line">ラインA</div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">7名</div><div class="timeline-mini">現在 7名 / 適正</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">6名</div><div class="timeline-mini">1名余力</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">5名</div><div class="timeline-mini">応援移動可能</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">4名</div><div class="timeline-mini">縮小可能</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">完了</div><div class="timeline-mini">17:18見込み</div></div>
+
+          <div class="timeline-cell timeline-line">ラインB</div>
+          <div class="timeline-cell cell-bad"><div class="timeline-num">11名</div><div class="timeline-mini">現在 9名 / 2名不足</div></div>
+          <div class="timeline-cell cell-bad"><div class="timeline-num">12名</div><div class="timeline-mini">3名不足リスク</div></div>
+          <div class="timeline-cell cell-bad"><div class="timeline-num">11名</div><div class="timeline-mini">人員集中推奨</div></div>
+          <div class="timeline-cell cell-warn"><div class="timeline-num">8名</div><div class="timeline-mini">遅延吸収中</div></div>
+          <div class="timeline-cell cell-bad"><div class="timeline-num">残</div><div class="timeline-mini">18:05見込み</div></div>
+
+          <div class="timeline-cell timeline-line">ラインC</div>
+          <div class="timeline-cell cell-warn"><div class="timeline-num">7名</div><div class="timeline-mini">現在 6名 / 1名不足</div></div>
+          <div class="timeline-cell cell-warn"><div class="timeline-num">7名</div><div class="timeline-mini">検品注意</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">5名</div><div class="timeline-mini">不足解消見込み</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">4名</div><div class="timeline-mini">縮小可能</div></div>
+          <div class="timeline-cell cell-good"><div class="timeline-num">完了</div><div class="timeline-mini">17:42見込み</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>判断サマリー</h2>
+          <p class="panel-desc">管理者が次に取るべき判断を、短く表示する想定です。</p>
+        </div>
+      </div>
+
+      <div class="insight-grid">
+        <div class="insight">
+          <div class="insight-title">最優先対応</div>
+          <div class="insight-body">
+            ラインBのピッキングと手梱包が遅延要因です。ラインAから1名、ラインCから1名を一時応援に回すことで、全体完了見込みを短縮できます。
+          </div>
+        </div>
+        <div class="insight">
+          <div class="insight-title">人員移動余地</div>
+          <div class="insight-body">
+            ラインAは17:18完了見込みのため、15:00以降に1〜2名の移動余地があります。自動包装機の処理能力は維持できています。
+          </div>
+        </div>
+        <div class="insight">
+          <div class="insight-title">注意工程</div>
+          <div class="insight-body">
+            ラインCの検品は軽微な遅延リスクがあります。ただし、ラインBの遅延影響が大きいため、優先順位はラインBの応援投入が上です。
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
